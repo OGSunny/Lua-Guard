@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Panel - Lua Guard</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="admin-page">
+    <!-- Background -->
+    <div class="bg-animation">
+        <div class="bg-gradient"></div>
+    </div>
+
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="/" class="nav-logo">
+                <i class="fas fa-shield-alt"></i>
+                <span>Lua Guard</span>
+                <span class="admin-badge">Admin</span>
+            </a>
+            <div class="nav-links">
+                <a href="/dashboard">Dashboard</a>
+                <a href="/admin" class="active">Admin Panel</a>
+            </div>
+            <div class="nav-auth">
+                <div class="user-menu" id="user-menu">
+                    <img src="" alt="Avatar" class="user-avatar" id="user-avatar">
+                    <span class="user-name" id="user-name">Admin</span>
+                    <i class="fas fa-chevron-down"></i>
+                    <div class="user-dropdown">
+                        <a href="#" onclick="logout()"><i class="fas fa-sign-out-alt"></i> Logout</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Admin Content -->
+    <main class="admin-main">
+        <div class="container">
+            <!-- Admin Header -->
+            <div class="admin-header">
+                <h1><i class="fas fa-cog"></i> Admin Panel</h1>
+                <p>Manage users, keys, and system settings.</p>
+            </div>
+
+            <!-- Stats Overview -->
+            <div class="admin-stats">
+                <div class="stat-card admin">
+                    <div class="stat-icon blue">
+                        <i class="fas fa-users"></i>
+                    </div>
+                    <div class="stat-info">
+                        <span class="stat-value" id="admin-total-users">0</span>
+                        <span class="stat-name">Total Users</span>
+                    </div>
+                </div>
+                <div class="stat-card admin">
+                    <div class="stat-icon green">
+                        <i class="fas fa-key"></i>
+                    </div>
+                    <div class="stat-info">
+                        <span class="stat-value" id="admin-total-keys">0</span>
+                        <span class="stat-name">Total Keys</span>
+                    </div>
+                </div>
+                <div class="stat-card admin">
+                    <div class="stat-icon purple">
+                        <i class="fas fa-check-circle"></i>
+                    </div>
+                    <div class="stat-info">
+                        <span class="stat-value" id="admin-active-keys">0</span>
+                        <span class="stat-name">Active Keys</span>
+                    </div>
+                </div>
+                <div class="stat-card admin">
+                    <div class="stat-icon red">
+                        <i class="fas fa-ban"></i>
+                    </div>
+                    <div class="stat-info">
+                        <span class="stat-value" id="admin-banned-users">0</span>
+                        <span class="stat-name">Banned Users</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Admin Tabs -->
+            <div class="admin-tabs">
+                <button class="tab-btn active" data-tab="users">
+                    <i class="fas fa-users"></i> Users
+                </button>
+                <button class="tab-btn" data-tab="keys">
+                    <i class="fas fa-key"></i> Keys
+                </button>
+                <button class="tab-btn" data-tab="settings">
+                    <i class="fas fa-cog"></i> Settings
+                </button>
+            </div>
+
+            <!-- Users Tab -->
+            <div class="admin-tab-content active" id="users-tab">
+                <div class="section-header">
+                    <h2>User Management</h2>
+                    <div class="search-box">
+                        <i class="fas fa-search"></i>
+                        <input type="text" id="user-search" placeholder="Search users...">
+                    </div>
+                </div>
+                <div class="table-container">
+                    <table class="admin-table">
+                        <thead>
+                            <tr>
+                                <th>User</th>
+                                <th>Discord ID</th>
+                                <th>Joined</th>
+                                <th>Keys</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="users-table-body">
+                            <tr class="loading-row">
+                                <td colspan="6"><i class="fas fa-spinner fa-spin"></i> Loading...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Keys Tab -->
+            <div class="admin-tab-content" id="keys-tab">
+                <div class="section-header">
+                    <h2>Key Management</h2>
+                    <div class="search-box">
+                        <i class="fas fa-search"></i>
+                        <input type="text" id="key-search" placeholder="Search keys...">
+                    </div>
+                </div>
+                <div class="table-container">
+                    <table class="admin-table">
+                        <thead>
+                            <tr>
+                                <th>Key</th>
+                                <th>User</th>
+                                <th>HWID</th>
+                                <th>Created</th>
+                                <th>Expires</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="keys-table-body-admin">
+                            <tr class="loading-row">
+                                <td colspan="7"><i class="fas fa-spinner fa-spin"></i> Loading...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Settings Tab -->
+            <div class="admin-tab-content" id="settings-tab">
+                <div class="settings-grid">
+                    <!-- Linkvertise Settings -->
+                    <div class="settings-card">
+                        <div class="settings-card-header">
+                            <h3><i class="fas fa-link"></i> Linkvertise Settings</h3>
+                            <label class="toggle">
+                                <input type="checkbox" id="linkvertise-active" checked>
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                        <div class="settings-form">
+                            <div class="form-group">
+                                <label>Publisher ID</label>
+                                <input type="text" id="linkvertise-publisher-id" placeholder="Enter Publisher ID">
+                            </div>
+                            <div class="form-group">
+                                <label>Anti-Bypass Token</label>
+                                <input type="password" id="linkvertise-token" placeholder="Enter Anti-Bypass Token">
+                            </div>
+                            <button class="btn btn-primary" onclick="saveLinkvertiseSettings()">
+                                <i class="fas fa-save"></i> Save Settings
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- LootLabs Settings -->
+                    <div class="settings-card">
+                        <div class="settings-card-header">
+                            <h3><i class="fas fa-coins"></i> LootLabs Settings</h3>
+                            <label class="toggle">
+                                <input type="checkbox" id="lootlabs-active">
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                        <div class="settings-form">
+                            <div class="form-group">
+                                <label>Publisher ID</label>
+                                <input type="text" id="lootlabs-publisher-id" placeholder="Enter Publisher ID">
+                            </div>
+                            <div class="form-group">
+                                <label>API Key</label>
+                                <input type="password" id="lootlabs-api-key" placeholder="Enter API Key">
+                            </div>
+                            <button class="btn btn-primary" onclick="saveLootLabsSettings()">
+                                <i class="fas fa-save"></i> Save Settings
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Discord Settings -->
+                    <div class="settings-card">
+                        <div class="settings-card-header">
+                            <h3><i class="fab fa-discord"></i> Discord Webhook</h3>
+                        </div>
+                        <div class="settings-form">
+                            <div class="form-group">
+                                <label>Webhook URL</label>
+                                <input type="url" id="discord-webhook" placeholder="https://discord.com/api/webhooks/...">
+                            </div>
+                            <button class="btn btn-primary" onclick="saveWebhookSettings()">
+                                <i class="fas fa-save"></i> Save Webhook
+                            </button>
+                            <button class="btn btn-secondary" onclick="testWebhook()">
+                                <i class="fas fa-paper-plane"></i> Test Webhook
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Action Modal -->
+    <div class="modal" id="action-modal">
+        <div class="modal-content">
+            <h3 id="action-modal-title">Confirm Action</h3>
+            <p id="action-modal-message">Are you sure?</p>
+            <div class="form-group" id="action-reason-group" style="display: none;">
+                <label>Reason (optional)</label>
+                <input type="text" id="action-reason" placeholder="Enter reason...">
+            </div>
+            <div class="modal-buttons">
+                <button class="btn btn-secondary" onclick="closeActionModal()">Cancel</button>
+                <button class="btn btn-danger" id="action-confirm-btn">Confirm</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast -->
+    <div class="toast" id="toast">
+        <i class="fas fa-check-circle"></i>
+        <span id="toast-message">Success!</span>
+    </div>
+
+    <script src="/js/admin.js"></script>
+</body>
+</html>
