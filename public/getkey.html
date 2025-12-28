@@ -4,484 +4,556 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Get Key - Lua Guard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <style>
+        :root {
+            --bg-primary: #0a0a0f;
+            --bg-secondary: #111118;
+            --bg-card: #16161d;
+            --accent: #6366f1;
+            --accent-hover: #818cf8;
+            --success: #22c55e;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --text-primary: #ffffff;
+            --text-secondary: #a1a1aa;
+            --text-muted: #71717a;
+            --border: #27272a;
+        }
+        
         * { margin: 0; padding: 0; box-sizing: border-box; }
+        
         body {
-            font-family: 'Segoe UI', sans-serif;
-            background: linear-gradient(135deg, #0f0f1a 0%, #1a1a2e 50%, #16213e 100%);
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
             min-height: 100vh;
             display: flex;
             align-items: center;
             justify-content: center;
-            color: #fff;
+            padding: 20px;
         }
+        
+        .bg-effects {
+            position: fixed;
+            inset: 0;
+            z-index: -1;
+            background: 
+                radial-gradient(ellipse at 30% 20%, rgba(99, 102, 241, 0.15) 0%, transparent 50%),
+                radial-gradient(ellipse at 70% 80%, rgba(139, 92, 246, 0.1) 0%, transparent 50%);
+        }
+        
         .container {
-            background: rgba(255,255,255,0.03);
-            border: 1px solid rgba(255,255,255,0.1);
+            width: 100%;
+            max-width: 480px;
+        }
+        
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
             border-radius: 20px;
             padding: 40px;
-            max-width: 500px;
-            width: 90%;
             text-align: center;
-            backdrop-filter: blur(10px);
         }
-        .logo { font-size: 4rem; margin-bottom: 10px; }
-        h1 { font-size: 2rem; margin-bottom: 5px; }
-        .subtitle { color: #888; margin-bottom: 30px; }
         
-        .progress-container {
-            background: rgba(0,0,0,0.3);
-            border-radius: 15px;
-            padding: 25px;
-            margin-bottom: 25px;
+        .logo {
+            font-size: 4rem;
+            margin-bottom: 16px;
         }
-        .progress-title { font-size: 0.9rem; color: #888; margin-bottom: 15px; }
+        
+        .title {
+            font-size: 1.75rem;
+            font-weight: 800;
+            margin-bottom: 8px;
+        }
+        
+        .subtitle {
+            color: var(--text-secondary);
+            margin-bottom: 32px;
+        }
+        
+        /* Progress Section */
+        .progress-section {
+            background: var(--bg-secondary);
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 24px;
+        }
+        
+        .progress-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 16px;
+            font-size: 0.875rem;
+        }
+        
+        .progress-label { color: var(--text-muted); }
+        .progress-value { color: var(--accent); font-weight: 600; }
+        
         .progress-bar {
-            background: #1a1a2e;
-            height: 12px;
+            height: 8px;
+            background: var(--bg-primary);
             border-radius: 10px;
             overflow: hidden;
-            margin-bottom: 15px;
+            margin-bottom: 20px;
         }
+        
         .progress-fill {
             height: 100%;
-            background: linear-gradient(90deg, #5865F2, #00D4AA);
+            background: linear-gradient(90deg, var(--accent), #a855f7);
             border-radius: 10px;
             transition: width 0.5s ease;
         }
-        .progress-text { font-size: 0.9rem; color: #00D4AA; }
         
         .checkpoints {
             display: flex;
             justify-content: center;
-            gap: 15px;
-            margin-bottom: 25px;
+            gap: 16px;
         }
+        
         .checkpoint {
-            width: 50px;
-            height: 50px;
+            width: 48px;
+            height: 48px;
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-weight: bold;
-            font-size: 1.2rem;
-            border: 3px solid #333;
-            background: #1a1a2e;
-            transition: all 0.3s;
-        }
-        .checkpoint.completed {
-            background: linear-gradient(135deg, #57F287, #00D4AA);
-            border-color: #57F287;
-            color: #000;
-        }
-        .checkpoint.current {
-            border-color: #5865F2;
-            animation: pulse 1.5s infinite;
-        }
-        @keyframes pulse {
-            0%, 100% { box-shadow: 0 0 0 0 rgba(88,101,242,0.5); }
-            50% { box-shadow: 0 0 0 10px rgba(88,101,242,0); }
-        }
-        
-        .btn {
-            display: inline-block;
-            padding: 15px 40px;
-            border-radius: 10px;
-            font-weight: 600;
+            font-weight: 700;
             font-size: 1.1rem;
-            text-decoration: none;
-            border: none;
-            cursor: pointer;
+            background: var(--bg-primary);
+            border: 2px solid var(--border);
             transition: all 0.3s;
-            width: 100%;
-            margin-bottom: 15px;
-        }
-        .btn-primary {
-            background: linear-gradient(135deg, #5865F2, #4752C4);
-            color: #fff;
-        }
-        .btn-primary:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 10px 30px rgba(88,101,242,0.3);
-        }
-        .btn-success {
-            background: linear-gradient(135deg, #57F287, #00D4AA);
-            color: #000;
-        }
-        .btn:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-            transform: none !important;
         }
         
-        .key-display {
-            background: #0a0a0f;
-            border: 2px solid #57F287;
-            border-radius: 12px;
-            padding: 20px;
-            margin: 20px 0;
-        }
-        .key-display code {
-            font-size: 1.4rem;
-            color: #00D4AA;
-            letter-spacing: 2px;
-            word-break: break-all;
-        }
-        .key-display .expires {
-            color: #888;
-            font-size: 0.9rem;
-            margin-top: 10px;
+        .checkpoint.done {
+            background: linear-gradient(135deg, var(--success), #16a34a);
+            border-color: var(--success);
+            color: white;
         }
         
-        .hwid-box {
-            background: rgba(0,0,0,0.3);
-            border-radius: 10px;
-            padding: 15px;
+        .checkpoint.active {
+            border-color: var(--accent);
+            box-shadow: 0 0 20px rgba(99, 102, 241, 0.4);
+            animation: glow 1.5s infinite alternate;
+        }
+        
+        @keyframes glow {
+            from { box-shadow: 0 0 10px rgba(99, 102, 241, 0.4); }
+            to { box-shadow: 0 0 25px rgba(99, 102, 241, 0.6); }
+        }
+        
+        /* Input */
+        .input-group {
             margin-bottom: 20px;
             text-align: left;
         }
-        .hwid-box label { color: #888; font-size: 0.85rem; display: block; margin-bottom: 8px; }
-        .hwid-box input {
+        
+        .input-label {
+            display: block;
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+        }
+        
+        .input {
             width: 100%;
-            padding: 12px;
-            background: #12121a;
-            border: 1px solid #333;
-            border-radius: 8px;
-            color: #00D4AA;
+            padding: 14px 16px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            color: var(--text-primary);
+            font-size: 1rem;
             font-family: monospace;
-            font-size: 0.9rem;
-        }
-        .hwid-box input:focus { outline: none; border-color: #5865F2; }
-        
-        .error-msg {
-            background: rgba(237,66,69,0.1);
-            border: 1px solid #ED4245;
-            color: #ED4245;
-            padding: 15px;
-            border-radius: 10px;
-            margin-bottom: 20px;
-        }
-        .success-msg {
-            background: rgba(87,242,135,0.1);
-            border: 1px solid #57F287;
-            color: #57F287;
-            padding: 15px;
-            border-radius: 10px;
-            margin-bottom: 20px;
+            transition: border-color 0.3s;
         }
         
-        .info-text { color: #666; font-size: 0.85rem; margin-top: 20px; line-height: 1.5; }
-        .back-link { color: #5865F2; text-decoration: none; display: inline-block; margin-top: 20px; }
-        .back-link:hover { text-decoration: underline; }
+        .input:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
         
-        .copy-btn {
-            background: #333;
+        .input::placeholder { color: var(--text-muted); }
+        
+        /* Buttons */
+        .btn {
+            width: 100%;
+            padding: 16px;
             border: none;
-            color: #fff;
-            padding: 8px 20px;
-            border-radius: 6px;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: 600;
             cursor: pointer;
-            margin-top: 10px;
-            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            transition: all 0.3s;
+            text-decoration: none;
         }
-        .copy-btn:hover { background: #444; }
         
-        .loading { display: none; }
-        .loading.show { display: block; }
-        .spinner {
-            width: 40px;
-            height: 40px;
-            border: 3px solid #333;
-            border-top-color: #5865F2;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-            margin: 20px auto;
+        .btn-primary {
+            background: linear-gradient(135deg, var(--accent), #8b5cf6);
+            color: white;
         }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(99, 102, 241, 0.3);
+        }
+        
+        .btn-primary:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .btn-success {
+            background: linear-gradient(135deg, var(--success), #16a34a);
+            color: white;
+        }
+        
+        .btn-secondary {
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+            margin-top: 12px;
+        }
+        
+        /* Key Display */
+        .key-box {
+            background: var(--bg-secondary);
+            border: 2px solid var(--success);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .key-value {
+            font-family: monospace;
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: var(--success);
+            word-break: break-all;
+            margin-bottom: 8px;
+        }
+        
+        .key-expires {
+            font-size: 0.875rem;
+            color: var(--text-muted);
+        }
+        
+        /* Messages */
+        .message {
+            padding: 14px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            font-size: 0.9rem;
+            display: none;
+        }
+        
+        .message.show { display: block; }
+        
+        .message.error {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            color: var(--danger);
+        }
+        
+        .message.success {
+            background: rgba(34, 197, 94, 0.1);
+            border: 1px solid rgba(34, 197, 94, 0.3);
+            color: var(--success);
+        }
+        
+        .message.info {
+            background: rgba(99, 102, 241, 0.1);
+            border: 1px solid rgba(99, 102, 241, 0.3);
+            color: var(--accent);
+        }
+        
+        /* Sections */
+        .section { display: none; }
+        .section.active { display: block; }
+        
+        /* Info Text */
+        .info-text {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin-top: 16px;
+            line-height: 1.5;
+        }
+        
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 0.875rem;
+            margin-top: 24px;
+            transition: color 0.3s;
+        }
+        
+        .back-link:hover { color: var(--accent); }
+        
+        /* Loading */
+        .spinner {
+            width: 20px;
+            height: 20px;
+            border: 2px solid transparent;
+            border-top-color: currentColor;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        
         @keyframes spin { to { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
+    <div class="bg-effects"></div>
+    
     <div class="container">
-        <div class="logo">🛡️</div>
-        <h1>Lua Guard</h1>
-        <p class="subtitle">Key System</p>
-        
-        <!-- Loading -->
-        <div class="loading" id="loading">
-            <div class="spinner"></div>
-            <p>Loading...</p>
-        </div>
-        
-        <!-- Error Message -->
-        <div class="error-msg" id="error-msg" style="display:none;"></div>
-        
-        <!-- Success Message -->
-        <div class="success-msg" id="success-msg" style="display:none;"></div>
-        
-        <!-- HWID Input (shown initially) -->
-        <div id="hwid-section">
-            <div class="hwid-box">
-                <label>Enter your HWID</label>
-                <input type="text" id="hwid-input" placeholder="Paste your HWID here...">
-            </div>
-            <button class="btn btn-primary" onclick="startGetKey()">🔑 Get Key</button>
-            <p class="info-text">Run the script in Roblox to get your HWID, or use <strong>TEST-HWID</strong> for testing.</p>
-        </div>
-        
-        <!-- Key Generation Progress -->
-        <div id="progress-section" style="display:none;">
-            <div class="progress-container">
-                <div class="progress-title">CHECKPOINT PROGRESS</div>
-                <div class="progress-bar">
-                    <div class="progress-fill" id="progress-fill" style="width: 0%"></div>
+        <div class="card">
+            <div class="logo">🛡️</div>
+            <h1 class="title">Lua Guard</h1>
+            <p class="subtitle">Key System</p>
+            
+            <div class="message" id="message"></div>
+            
+            <!-- HWID Section -->
+            <div class="section active" id="hwid-section">
+                <div class="input-group">
+                    <label class="input-label">Enter Your HWID</label>
+                    <input type="text" class="input" id="hwid-input" placeholder="Paste HWID from script...">
                 </div>
-                <div class="progress-text" id="progress-text">0 / 2 Completed</div>
+                <button class="btn btn-primary" id="start-btn" onclick="startProcess()">
+                    <i class="fas fa-key"></i>
+                    Get Key
+                </button>
+                <p class="info-text">
+                    Run the loader script in Roblox to get your HWID.<br>
+                    For testing, use: <strong>TEST-HWID-123</strong>
+                </p>
             </div>
             
-            <div class="checkpoints" id="checkpoints">
-                <div class="checkpoint" id="cp-1">1</div>
-                <div class="checkpoint" id="cp-2">2</div>
+            <!-- Progress Section -->
+            <div class="section" id="progress-section">
+                <div class="progress-section">
+                    <div class="progress-header">
+                        <span class="progress-label">Progress</span>
+                        <span class="progress-value" id="progress-text">0/2</span>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progress-fill" style="width: 0%"></div>
+                    </div>
+                    <div class="checkpoints" id="checkpoints"></div>
+                </div>
+                <button class="btn btn-primary" id="checkpoint-btn" onclick="openCheckpoint()">
+                    <i class="fas fa-external-link-alt"></i>
+                    <span id="checkpoint-btn-text">Complete Checkpoint 1</span>
+                </button>
+                <p class="info-text">
+                    Complete each checkpoint to generate your key.<br>
+                    Each takes about 15-30 seconds.
+                </p>
             </div>
             
-            <button class="btn btn-primary" id="checkpoint-btn" onclick="openCheckpoint()">
-                ⚡ Complete Checkpoint 1
-            </button>
+            <!-- Success Section -->
+            <div class="section" id="success-section">
+                <div class="message success show">
+                    <i class="fas fa-check-circle"></i> Key Generated Successfully!
+                </div>
+                <div class="key-box">
+                    <div class="key-value" id="key-display">LG-XXXX-XXXX-XXXX</div>
+                    <div class="key-expires" id="key-expires">Expires in 24 hours</div>
+                </div>
+                <button class="btn btn-success" onclick="copyKey()">
+                    <i class="fas fa-copy"></i>
+                    Copy Key
+                </button>
+                <button class="btn btn-secondary" onclick="location.reload()">
+                    <i class="fas fa-redo"></i>
+                    Get Another Key
+                </button>
+            </div>
             
-            <p class="info-text">Complete all checkpoints to generate your key. Each checkpoint takes about 15 seconds.</p>
+            <!-- Has Key Section -->
+            <div class="section" id="haskey-section">
+                <div class="message info show">
+                    <i class="fas fa-info-circle"></i> You already have an active key!
+                </div>
+                <div class="key-box">
+                    <div class="key-value" id="existing-key">LG-XXXX-XXXX-XXXX</div>
+                    <div class="key-expires" id="existing-expires">Expires in 24 hours</div>
+                </div>
+                <button class="btn btn-success" onclick="copyExistingKey()">
+                    <i class="fas fa-copy"></i>
+                    Copy Key
+                </button>
+            </div>
+            
+            <a href="/" class="back-link">
+                <i class="fas fa-arrow-left"></i>
+                Back to Home
+            </a>
         </div>
-        
-        <!-- Key Display (shown when key is generated) -->
-        <div id="key-section" style="display:none;">
-            <div class="success-msg">✅ Key Generated Successfully!</div>
-            
-            <div class="key-display">
-                <code id="key-display">LUAGUARD-XXXX-XXXX-XXXX-XXXX</code>
-                <div class="expires" id="key-expires">Expires in 24 hours</div>
-                <button class="copy-btn" onclick="copyKey()">📋 Copy Key</button>
-            </div>
-            
-            <button class="btn btn-success" onclick="copyKey()">📋 Copy Key to Clipboard</button>
-            
-            <p class="info-text">Paste this key in the script to unlock. Your key is bound to your device.</p>
-        </div>
-        
-        <!-- Already Has Key -->
-        <div id="haskey-section" style="display:none;">
-            <div class="success-msg">✅ You already have an active key!</div>
-            
-            <div class="key-display">
-                <code id="existing-key">LUAGUARD-XXXX-XXXX-XXXX-XXXX</code>
-                <div class="expires" id="existing-expires">Expires in 24 hours</div>
-                <button class="copy-btn" onclick="copyExistingKey()">📋 Copy Key</button>
-            </div>
-        </div>
-        
-        <a href="/" class="back-link">← Back to Home</a>
     </div>
 
     <script>
         const API = '/api';
-        let currentHWID = '';
-        let currentCheckpoint = 0;
-        let totalCheckpoints = 2;
-        let checkpointWindow = null;
+        let hwid = '';
+        let completed = 0;
+        let required = 2;
+        let token = '';
         
         // Check URL params
         const params = new URLSearchParams(window.location.search);
-        
         if (params.get('hwid')) {
-            currentHWID = params.get('hwid');
-            document.getElementById('hwid-input').value = currentHWID;
+            hwid = params.get('hwid');
+            document.getElementById('hwid-input').value = hwid;
         }
-        
         if (params.get('key') && params.get('success')) {
-            // Key was just generated!
-            showKeySection(params.get('key'));
-        } else if (params.get('cp')) {
-            // Checkpoint completed, continue
-            currentCheckpoint = parseInt(params.get('cp'));
-            if (currentHWID) {
-                showProgressSection();
-                updateProgress();
-            }
-        } else if (params.get('error')) {
-            showError('An error occurred. Please try again.');
+            showSection('success-section');
+            document.getElementById('key-display').textContent = params.get('key');
+        } else if (params.get('step')) {
+            completed = parseInt(params.get('step'));
+            if (hwid) startProcess();
         }
         
-        // Auto-load if HWID in URL
-        if (currentHWID && !params.get('key') && !params.get('success')) {
-            startGetKey();
-        }
-        
-        async function startGetKey() {
-            const hwid = document.getElementById('hwid-input').value.trim();
+        async function startProcess() {
+            hwid = document.getElementById('hwid-input').value.trim();
+            if (!hwid) return showMessage('Please enter your HWID', 'error');
             
-            if (!hwid) {
-                showError('Please enter your HWID');
-                return;
-            }
-            
-            currentHWID = hwid;
-            showLoading(true);
+            setLoading('start-btn', true);
             
             try {
-                const res = await fetch(`${API}?route=getkey&hwid=${hwid}`);
+                const res = await fetch(`${API}?route=key/info&hwid=${hwid}`);
                 const data = await res.json();
                 
-                showLoading(false);
+                setLoading('start-btn', false);
                 
-                if (data.has_key) {
-                    // Already has a key
+                if (data.status === 'active') {
                     document.getElementById('existing-key').textContent = data.key;
-                    document.getElementById('existing-expires').textContent = 
-                        `Expires in ${Math.floor(data.expires_in / 3600)}h ${Math.floor((data.expires_in % 3600) / 60)}m`;
+                    document.getElementById('existing-expires').textContent = `Expires in ${data.expires_in}`;
                     showSection('haskey-section');
                 } else {
-                    // Need to complete checkpoints
-                    currentCheckpoint = data.checkpoints_completed || 0;
-                    totalCheckpoints = data.checkpoints_required || 2;
-                    showProgressSection();
+                    completed = data.checkpoints_completed;
+                    required = data.checkpoints_required;
+                    token = data.token;
                     updateProgress();
+                    showSection('progress-section');
                 }
             } catch (e) {
-                showLoading(false);
-                showError('Failed to connect to server');
+                setLoading('start-btn', false);
+                showMessage('Connection error. Try again.', 'error');
             }
-        }
-        
-        function showProgressSection() {
-            document.getElementById('hwid-section').style.display = 'none';
-            document.getElementById('progress-section').style.display = 'block';
         }
         
         function updateProgress() {
-            const percent = (currentCheckpoint / totalCheckpoints) * 100;
+            const percent = (completed / required) * 100;
             document.getElementById('progress-fill').style.width = percent + '%';
-            document.getElementById('progress-text').textContent = `${currentCheckpoint} / ${totalCheckpoints} Completed`;
+            document.getElementById('progress-text').textContent = `${completed}/${required}`;
             
-            // Update checkpoint dots
-            for (let i = 1; i <= totalCheckpoints; i++) {
-                const cp = document.getElementById('cp-' + i);
-                if (cp) {
-                    cp.classList.remove('completed', 'current');
-                    if (i <= currentCheckpoint) {
-                        cp.classList.add('completed');
-                        cp.innerHTML = '✓';
-                    } else if (i === currentCheckpoint + 1) {
-                        cp.classList.add('current');
-                    }
-                }
+            // Render checkpoints
+            let html = '';
+            for (let i = 1; i <= required; i++) {
+                let cls = '';
+                if (i <= completed) cls = 'done';
+                else if (i === completed + 1) cls = 'active';
+                html += `<div class="checkpoint ${cls}">${i <= completed ? '✓' : i}</div>`;
             }
+            document.getElementById('checkpoints').innerHTML = html;
             
             // Update button
-            const btn = document.getElementById('checkpoint-btn');
-            if (currentCheckpoint >= totalCheckpoints) {
-                btn.textContent = '⏳ Generating Key...';
-                btn.disabled = true;
+            if (completed >= required) {
+                document.getElementById('checkpoint-btn-text').textContent = 'Generating...';
+                document.getElementById('checkpoint-btn').disabled = true;
             } else {
-                btn.textContent = `⚡ Complete Checkpoint ${currentCheckpoint + 1}`;
-                btn.disabled = false;
+                document.getElementById('checkpoint-btn-text').textContent = `Complete Checkpoint ${completed + 1}`;
             }
         }
         
         async function openCheckpoint() {
-            const nextCheckpoint = currentCheckpoint + 1;
+            const step = completed + 1;
             
             try {
-                const res = await fetch(`${API}?route=checkpoint&hwid=${currentHWID}&checkpoint=${nextCheckpoint}`);
+                const res = await fetch(`${API}?route=key/checkpoint&hwid=${hwid}&step=${step}`);
                 const data = await res.json();
                 
-                if (data.has_key) {
-                    showKeySection(data.key);
+                if (data.status === 'active') {
+                    document.getElementById('key-display').textContent = data.key;
+                    showSection('success-section');
                     return;
                 }
                 
                 if (data.url) {
-                    // Open Linkvertise in new tab
-                    checkpointWindow = window.open(data.url, '_blank');
-                    
-                    // Start checking for completion
-                    document.getElementById('checkpoint-btn').textContent = '⏳ Waiting for completion...';
+                    window.open(data.url, '_blank');
+                    document.getElementById('checkpoint-btn-text').textContent = 'Waiting...';
                     document.getElementById('checkpoint-btn').disabled = true;
-                    
-                    // Poll for completion
-                    pollForCompletion();
+                    pollStatus();
                 }
             } catch (e) {
-                showError('Failed to get checkpoint link');
+                showMessage('Failed to get checkpoint link', 'error');
             }
         }
         
-        async function pollForCompletion() {
-            const checkInterval = setInterval(async () => {
+        function pollStatus() {
+            const interval = setInterval(async () => {
                 try {
-                    const res = await fetch(`${API}?route=getkey&hwid=${currentHWID}`);
+                    const res = await fetch(`${API}?route=key/info&hwid=${hwid}`);
                     const data = await res.json();
                     
-                    if (data.has_key) {
-                        clearInterval(checkInterval);
-                        showKeySection(data.key);
-                    } else if (data.checkpoints_completed > currentCheckpoint) {
-                        clearInterval(checkInterval);
-                        currentCheckpoint = data.checkpoints_completed;
+                    if (data.status === 'active') {
+                        clearInterval(interval);
+                        document.getElementById('key-display').textContent = data.key;
+                        document.getElementById('key-expires').textContent = `Expires in ${data.expires_in}`;
+                        showSection('success-section');
+                    } else if (data.checkpoints_completed > completed) {
+                        clearInterval(interval);
+                        completed = data.checkpoints_completed;
                         updateProgress();
-                        
-                        if (currentCheckpoint >= totalCheckpoints) {
-                            // Should have key now, check again
-                            setTimeout(() => pollForCompletion(), 1000);
-                        }
+                        document.getElementById('checkpoint-btn').disabled = false;
                     }
                 } catch (e) {}
             }, 3000);
             
-            // Stop after 5 minutes
-            setTimeout(() => clearInterval(checkInterval), 300000);
-        }
-        
-        function showKeySection(key) {
-            document.getElementById('hwid-section').style.display = 'none';
-            document.getElementById('progress-section').style.display = 'none';
-            document.getElementById('haskey-section').style.display = 'none';
-            document.getElementById('key-section').style.display = 'block';
-            document.getElementById('key-display').textContent = key;
-            document.getElementById('error-msg').style.display = 'none';
-        }
-        
-        function showSection(sectionId) {
-            ['hwid-section', 'progress-section', 'key-section', 'haskey-section'].forEach(id => {
-                document.getElementById(id).style.display = id === sectionId ? 'block' : 'none';
-            });
+            setTimeout(() => clearInterval(interval), 300000);
         }
         
         function copyKey() {
             const key = document.getElementById('key-display').textContent;
             navigator.clipboard.writeText(key);
-            showSuccess('Key copied to clipboard!');
+            showMessage('Key copied to clipboard!', 'success');
         }
         
         function copyExistingKey() {
             const key = document.getElementById('existing-key').textContent;
             navigator.clipboard.writeText(key);
-            showSuccess('Key copied to clipboard!');
+            showMessage('Key copied to clipboard!', 'success');
         }
         
-        function showLoading(show) {
-            document.getElementById('loading').classList.toggle('show', show);
+        function showSection(id) {
+            document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+            document.getElementById(id).classList.add('active');
         }
         
-        function showError(msg) {
-            const el = document.getElementById('error-msg');
-            el.textContent = '❌ ' + msg;
-            el.style.display = 'block';
-            setTimeout(() => el.style.display = 'none', 5000);
+        function showMessage(text, type) {
+            const el = document.getElementById('message');
+            el.className = `message show ${type}`;
+            el.innerHTML = `<i class="fas fa-${type === 'error' ? 'exclamation-circle' : type === 'success' ? 'check-circle' : 'info-circle'}"></i> ${text}`;
+            setTimeout(() => el.classList.remove('show'), 4000);
         }
         
-        function showSuccess(msg) {
-            const el = document.getElementById('success-msg');
-            el.textContent = '✅ ' + msg;
-            el.style.display = 'block';
-            setTimeout(() => el.style.display = 'none', 3000);
+        function setLoading(btnId, loading) {
+            const btn = document.getElementById(btnId);
+            if (loading) {
+                btn.disabled = true;
+                btn.innerHTML = '<div class="spinner"></div> Loading...';
+            } else {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-key"></i> Get Key';
+            }
         }
     </script>
 </body>
