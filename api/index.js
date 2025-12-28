@@ -1,115 +1,238 @@
 const crypto = require('crypto');
 
 // ============================================
-// DATABASE (In-Memory for now - replace with real DB later)
+// DATABASE (In-Memory)
 // ============================================
-const DATABASE = {
-    users: new Map(),
+const DB = {
     keys: new Map(),
-    sessions: new Map(),
-    settings: {
-        linkvertise: { publisher_id: '', anti_bypass_token: '', is_active: true },
-        lootlabs: { publisher_id: '', api_key: '', is_active: false }
-    }
+    checkpoints: new Map(),
+    users: new Map(),
+    hwids: new Map()
 };
 
 // ============================================
-// HELPER FUNCTIONS
+// CONFIG
+// ============================================
+const CONFIG = {
+    LINKVERTISE_ID: process.env.LINKVERTISE_PUBLISHER_ID || '',
+    KEY_DURATION: 24 * 60 * 60 * 1000, // 24 hours
+    CHECKPOINTS_REQUIRED: 2,
+    BASE_URL: process.env.BASE_URL || 'https://lua-guard-test.vercel.app'
+};
+
+// ============================================
+// HELPERS
 // ============================================
 function generateKey() {
-    const segments = [];
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let key = 'LUAGUARD-';
     for (let i = 0; i < 4; i++) {
-        segments.push(crypto.randomBytes(2).toString('hex').toUpperCase());
+        if (i > 0) key += '-';
+        for (let j = 0; j < 4; j++) {
+            key += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
     }
-    return `LUAGUARD-${segments.join('-')}`;
+    return key;
 }
 
-function generateToken() {
-    return crypto.randomBytes(32).toString('hex');
+function generateCheckpointId() {
+    return crypto.randomBytes(16).toString('hex');
 }
 
-function getExpiration(hours = 24) {
-    return new Date(Date.now() + hours * 60 * 60 * 1000);
+function getHwidData(hwid) {
+    if (!DB.hwids.has(hwid)) {
+        DB.hwids.set(hwid, {
+            hwid: hwid,
+            checkpoints: 0,
+            checkpoint_id: null,
+            key: null,
+            key_expires: null,
+            created: Date.now()
+        });
+    }
+    return DB.hwids.get(hwid);
 }
 
-function formatTimeRemaining(expiresAt) {
-    const diff = new Date(expiresAt) - new Date();
-    if (diff <= 0) return 'Expired';
-    const hours = Math.floor(diff / 3600000);
-    const minutes = Math.floor((diff % 3600000) / 60000);
-    return `${hours}h ${minutes}m`;
+function createLinkvertiseUrl(targetUrl) {
+    const linkvertiseId = CONFIG.LINKVERTISE_ID;
+    if (!linkvertiseId) {
+        return targetUrl;
+    }
+    // Dynamic Linkvertise link
+    const encoded = Buffer.from(targetUrl).toString('base64');
+    return `https://link-to.net/${linkvertiseId}/dynamic?r=${encoded}`;
 }
 
-function setCorsHeaders(res) {
+function setCors(res) {
     res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-HWID');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-HWID');
 }
-
-function getClientIP(req) {
-    return req.headers['x-forwarded-for']?.split(',')[0] || 'unknown';
-}
-
-// ============================================
-// DISCORD CONFIG
-// ============================================
-const DISCORD = {
-    CLIENT_ID: process.env.DISCORD_CLIENT_ID || '',
-    CLIENT_SECRET: process.env.DISCORD_CLIENT_SECRET || '',
-    BOT_TOKEN: process.env.DISCORD_BOT_TOKEN || '',
-    SERVER_ID: process.env.DISCORD_SERVER_ID || '',
-    REDIRECT_URI: process.env.BASE_URL ? `${process.env.BASE_URL}/api?route=auth/callback` : 'http://localhost:3000/api?route=auth/callback'
-};
 
 // ============================================
 // MAIN HANDLER
 // ============================================
 module.exports = async (req, res) => {
-    setCorsHeaders(res);
+    setCors(res);
     
-    // Handle preflight
     if (req.method === 'OPTIONS') {
         return res.status(200).end();
     }
     
-    // Parse URL and route
     const url = new URL(req.url, `http://${req.headers.host}`);
-    const path = url.pathname;
-    const route = url.searchParams.get('route') || path.replace('/api/', '').replace('/api', '');
+    const route = url.searchParams.get('route') || url.pathname.replace('/api/', '').replace('/api', '') || '';
     
-    // Parse body for POST requests
     let body = {};
-    if (req.method === 'POST' && req.body) {
+    if (req.body) {
         body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
     }
     
     try {
-        // ========== API STATUS ==========
-        if (route === '' || route === '/' || route === 'status') {
+        // ==================== API STATUS ====================
+        if (route === '' || route === '/') {
             return res.status(200).json({
                 success: true,
-                message: 'Lua Guard API is running!',
-                version: '1.0.0',
-                endpoints: [
-                    'GET  /api - API status',
-                    'POST /api?route=keys/validate - Validate a key',
-                    'POST /api?route=keys/generate - Generate a key',
-                    'GET  /api?route=keys/user - Get user keys',
-                    'GET  /api?route=auth/discord - Discord OAuth',
-                    'GET  /api?route=auth/me - Get current user',
-                    'GET  /api?route=admin/stats - Get statistics',
-                    'POST /api?route=admin/settings - Update settings'
-                ]
+                name: 'Lua Guard API',
+                version: '2.0.0',
+                status: 'online'
             });
         }
-        
-        // ========== KEY VALIDATION ==========
-        if (route === 'keys/validate') {
-            if (req.method !== 'POST') {
-                return res.status(405).json({ success: false, error: 'Method not allowed' });
+
+        // ==================== GET KEY PAGE INFO ====================
+        if (route === 'getkey' || route === 'key/info') {
+            const hwid = url.searchParams.get('hwid') || body.hwid || req.headers['x-hwid'];
+            
+            if (!hwid) {
+                return res.status(400).json({ success: false, error: 'HWID required' });
             }
             
-            const { key, hwid } = body;
+            const data = getHwidData(hwid);
+            
+            // Check if already has valid key
+            if (data.key && data.key_expires > Date.now()) {
+                return res.status(200).json({
+                    success: true,
+                    has_key: true,
+                    key: data.key,
+                    expires_in: Math.floor((data.key_expires - Date.now()) / 1000),
+                    expires_at: new Date(data.key_expires).toISOString()
+                });
+            }
+            
+            // Generate checkpoint ID if not exists
+            if (!data.checkpoint_id) {
+                data.checkpoint_id = generateCheckpointId();
+                data.checkpoints = 0;
+            }
+            
+            return res.status(200).json({
+                success: true,
+                has_key: false,
+                checkpoints_completed: data.checkpoints,
+                checkpoints_required: CONFIG.CHECKPOINTS_REQUIRED,
+                checkpoint_id: data.checkpoint_id,
+                hwid: hwid
+            });
+        }
+
+        // ==================== GET CHECKPOINT LINK ====================
+        if (route === 'checkpoint' || route === 'key/checkpoint') {
+            const hwid = url.searchParams.get('hwid') || body.hwid;
+            const checkpoint = parseInt(url.searchParams.get('checkpoint') || body.checkpoint || '1');
+            
+            if (!hwid) {
+                return res.status(400).json({ success: false, error: 'HWID required' });
+            }
+            
+            const data = getHwidData(hwid);
+            
+            // Check if already has valid key
+            if (data.key && data.key_expires > Date.now()) {
+                return res.status(200).json({
+                    success: true,
+                    has_key: true,
+                    key: data.key,
+                    message: 'You already have a valid key!'
+                });
+            }
+            
+            // Generate checkpoint ID if not exists
+            if (!data.checkpoint_id) {
+                data.checkpoint_id = generateCheckpointId();
+            }
+            
+            // Create callback URL for this checkpoint
+            const callbackUrl = `${CONFIG.BASE_URL}/api?route=checkpoint/complete&hwid=${hwid}&cp=${checkpoint}&token=${data.checkpoint_id}`;
+            
+            // Create Linkvertise URL
+            const linkvertiseUrl = createLinkvertiseUrl(callbackUrl);
+            
+            return res.status(200).json({
+                success: true,
+                checkpoint: checkpoint,
+                total_checkpoints: CONFIG.CHECKPOINTS_REQUIRED,
+                url: linkvertiseUrl,
+                callback: callbackUrl
+            });
+        }
+
+        // ==================== CHECKPOINT COMPLETE (CALLBACK) ====================
+        if (route === 'checkpoint/complete') {
+            const hwid = url.searchParams.get('hwid');
+            const checkpoint = parseInt(url.searchParams.get('cp') || '1');
+            const token = url.searchParams.get('token');
+            
+            if (!hwid || !token) {
+                res.setHeader('Location', `${CONFIG.BASE_URL}/getkey.html?error=invalid`);
+                return res.status(302).end();
+            }
+            
+            const data = getHwidData(hwid);
+            
+            // Verify token
+            if (data.checkpoint_id !== token) {
+                res.setHeader('Location', `${CONFIG.BASE_URL}/getkey.html?hwid=${hwid}&error=invalid_token`);
+                return res.status(302).end();
+            }
+            
+            // Update checkpoint count
+            if (checkpoint > data.checkpoints) {
+                data.checkpoints = checkpoint;
+            }
+            
+            // Check if all checkpoints complete
+            if (data.checkpoints >= CONFIG.CHECKPOINTS_REQUIRED) {
+                // Generate key!
+                const newKey = generateKey();
+                const expiresAt = Date.now() + CONFIG.KEY_DURATION;
+                
+                data.key = newKey;
+                data.key_expires = expiresAt;
+                data.checkpoint_id = null;
+                data.checkpoints = 0;
+                
+                // Store key in keys DB too
+                DB.keys.set(newKey, {
+                    key: newKey,
+                    hwid: hwid,
+                    created: Date.now(),
+                    expires: expiresAt
+                });
+                
+                // Redirect to success page
+                res.setHeader('Location', `${CONFIG.BASE_URL}/getkey.html?hwid=${hwid}&key=${newKey}&success=true`);
+                return res.status(302).end();
+            }
+            
+            // Redirect back to get next checkpoint
+            res.setHeader('Location', `${CONFIG.BASE_URL}/getkey.html?hwid=${hwid}&cp=${data.checkpoints}`);
+            return res.status(302).end();
+        }
+
+        // ==================== VALIDATE KEY ====================
+        if (route === 'validate' || route === 'key/validate') {
+            const key = body.key || url.searchParams.get('key');
+            const hwid = body.hwid || url.searchParams.get('hwid') || req.headers['x-hwid'];
             
             if (!key || !hwid) {
                 return res.status(400).json({
@@ -124,18 +247,36 @@ module.exports = async (req, res) => {
                 return res.status(200).json({
                     success: true,
                     valid: true,
-                    expires_at: getExpiration(24).toISOString(),
-                    time_remaining: '24h 0m',
-                    message: 'Test key validated!'
+                    message: 'Test key validated!',
+                    expires_in: 86400
                 });
             }
             
-            // Check database for key
-            const storedKey = DATABASE.keys.get(key);
+            // Check HWID data
+            const data = getHwidData(hwid);
             
-            if (storedKey) {
-                // Check expiration
-                if (new Date(storedKey.expires_at) < new Date()) {
+            if (data.key === key && data.key_expires > Date.now()) {
+                return res.status(200).json({
+                    success: true,
+                    valid: true,
+                    expires_in: Math.floor((data.key_expires - Date.now()) / 1000),
+                    expires_at: new Date(data.key_expires).toISOString()
+                });
+            }
+            
+            // Check keys DB
+            const keyData = DB.keys.get(key);
+            
+            if (keyData) {
+                if (keyData.hwid !== hwid) {
+                    return res.status(200).json({
+                        success: false,
+                        valid: false,
+                        error: 'Key is bound to a different device'
+                    });
+                }
+                
+                if (keyData.expires < Date.now()) {
                     return res.status(200).json({
                         success: false,
                         valid: false,
@@ -143,43 +284,10 @@ module.exports = async (req, res) => {
                     });
                 }
                 
-                // Check HWID
-                if (storedKey.hwid !== hwid) {
-                    return res.status(200).json({
-                        success: false,
-                        valid: false,
-                        error: 'HWID mismatch - key bound to different device'
-                    });
-                }
-                
-                // Update last used
-                storedKey.last_used = new Date().toISOString();
-                storedKey.use_count = (storedKey.use_count || 0) + 1;
-                
                 return res.status(200).json({
                     success: true,
                     valid: true,
-                    expires_at: storedKey.expires_at,
-                    time_remaining: formatTimeRemaining(storedKey.expires_at)
-                });
-            }
-            
-            // Accept any LUAGUARD- format key for demo
-            if (key.startsWith('LUAGUARD-') && key.length >= 20) {
-                const newKey = {
-                    key: key,
-                    hwid: hwid,
-                    created_at: new Date().toISOString(),
-                    expires_at: getExpiration(24).toISOString(),
-                    use_count: 1
-                };
-                DATABASE.keys.set(key, newKey);
-                
-                return res.status(200).json({
-                    success: true,
-                    valid: true,
-                    expires_at: newKey.expires_at,
-                    time_remaining: '24h 0m'
+                    expires_in: Math.floor((keyData.expires - Date.now()) / 1000)
                 });
             }
             
@@ -189,419 +297,135 @@ module.exports = async (req, res) => {
                 error: 'Invalid key'
             });
         }
-        
-        // ========== KEY GENERATION ==========
-        if (route === 'keys/generate') {
+
+        // ==================== REDEEM KEY (Manual Entry) ====================
+        if (route === 'redeem' || route === 'key/redeem') {
+            const key = body.key || url.searchParams.get('key');
+            const hwid = body.hwid || url.searchParams.get('hwid');
+            
+            if (!key || !hwid) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Key and HWID required'
+                });
+            }
+            
+            const keyData = DB.keys.get(key);
+            
+            if (!keyData) {
+                return res.status(200).json({
+                    success: false,
+                    error: 'Invalid key'
+                });
+            }
+            
+            if (keyData.hwid && keyData.hwid !== hwid) {
+                return res.status(200).json({
+                    success: false,
+                    error: 'Key is already bound to another device'
+                });
+            }
+            
+            if (keyData.expires < Date.now()) {
+                return res.status(200).json({
+                    success: false,
+                    error: 'Key has expired'
+                });
+            }
+            
+            // Bind to HWID if not already
+            if (!keyData.hwid) {
+                keyData.hwid = hwid;
+            }
+            
+            // Update HWID data
+            const data = getHwidData(hwid);
+            data.key = key;
+            data.key_expires = keyData.expires;
+            
+            return res.status(200).json({
+                success: true,
+                message: 'Key redeemed successfully!',
+                expires_in: Math.floor((keyData.expires - Date.now()) / 1000)
+            });
+        }
+
+        // ==================== ADMIN: SET LINKVERTISE ID ====================
+        if (route === 'admin/linkvertise') {
             if (req.method !== 'POST') {
-                return res.status(405).json({ success: false, error: 'Method not allowed' });
-            }
-            
-            const { hwid, discord_id } = body;
-            
-            if (!hwid) {
-                return res.status(400).json({
-                    success: false,
-                    error: 'HWID is required'
+                return res.status(200).json({
+                    success: true,
+                    publisher_id: CONFIG.LINKVERTISE_ID || 'Not set',
+                    message: 'Set LINKVERTISE_PUBLISHER_ID in Vercel environment variables'
                 });
-            }
-            
-            // Check for existing active key for this HWID
-            for (const [keyStr, keyData] of DATABASE.keys) {
-                if (keyData.hwid === hwid && new Date(keyData.expires_at) > new Date()) {
-                    return res.status(200).json({
-                        success: true,
-                        hasActiveKey: true,
-                        key: keyStr,
-                        expires_at: keyData.expires_at,
-                        time_remaining: formatTimeRemaining(keyData.expires_at)
-                    });
-                }
-            }
-            
-            // Generate new key
-            const newKeyStr = generateKey();
-            const expiresAt = getExpiration(24);
-            
-            const keyData = {
-                key: newKeyStr,
-                hwid: hwid,
-                discord_id: discord_id || null,
-                created_at: new Date().toISOString(),
-                expires_at: expiresAt.toISOString(),
-                ip_address: getClientIP(req),
-                use_count: 0
-            };
-            
-            DATABASE.keys.set(newKeyStr, keyData);
-            
-            return res.status(200).json({
-                success: true,
-                key: newKeyStr,
-                expires_at: expiresAt.toISOString(),
-                time_remaining: '24h 0m'
-            });
-        }
-        
-        // ========== GET USER KEYS ==========
-        if (route === 'keys/user') {
-            const hwid = req.headers['x-hwid'] || url.searchParams.get('hwid');
-            
-            if (!hwid) {
-                return res.status(400).json({
-                    success: false,
-                    error: 'HWID required'
-                });
-            }
-            
-            const userKeys = [];
-            for (const [keyStr, keyData] of DATABASE.keys) {
-                if (keyData.hwid === hwid) {
-                    userKeys.push({
-                        key: keyStr,
-                        created_at: keyData.created_at,
-                        expires_at: keyData.expires_at,
-                        is_active: new Date(keyData.expires_at) > new Date(),
-                        time_remaining: formatTimeRemaining(keyData.expires_at),
-                        use_count: keyData.use_count || 0
-                    });
-                }
             }
             
             return res.status(200).json({
                 success: true,
-                keys: userKeys,
-                total: userKeys.length
+                message: 'Set LINKVERTISE_PUBLISHER_ID in Vercel environment variables'
             });
         }
-        
-        // ========== DISCORD AUTH - REDIRECT ==========
-        if (route === 'auth/discord') {
-            if (!DISCORD.CLIENT_ID) {
-                return res.status(500).json({
-                    success: false,
-                    error: 'Discord not configured. Set DISCORD_CLIENT_ID in environment variables.'
-                });
-            }
-            
-            const authUrl = `https://discord.com/api/oauth2/authorize?client_id=${DISCORD.CLIENT_ID}&redirect_uri=${encodeURIComponent(DISCORD.REDIRECT_URI)}&response_type=code&scope=identify%20email%20guilds`;
-            
-            res.setHeader('Location', authUrl);
-            return res.status(302).end();
-        }
-        
-        // ========== DISCORD AUTH - CALLBACK ==========
-        if (route === 'auth/callback') {
-            const code = url.searchParams.get('code');
-            const error = url.searchParams.get('error');
-            
-            if (error) {
-                res.setHeader('Location', '/?error=oauth_denied');
-                return res.status(302).end();
-            }
-            
-            if (!code) {
-                res.setHeader('Location', '/?error=no_code');
-                return res.status(302).end();
-            }
-            
-            try {
-                // Exchange code for token
-                const tokenRes = await fetch('https://discord.com/api/oauth2/token', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                    body: new URLSearchParams({
-                        client_id: DISCORD.CLIENT_ID,
-                        client_secret: DISCORD.CLIENT_SECRET,
-                        grant_type: 'authorization_code',
-                        code: code,
-                        redirect_uri: DISCORD.REDIRECT_URI
-                    })
-                });
-                
-                const tokenData = await tokenRes.json();
-                
-                if (!tokenData.access_token) {
-                    res.setHeader('Location', '/?error=token_failed');
-                    return res.status(302).end();
-                }
-                
-                // Get user info
-                const userRes = await fetch('https://discord.com/api/users/@me', {
-                    headers: { Authorization: `Bearer ${tokenData.access_token}` }
-                });
-                
-                const userData = await userRes.json();
-                
-                // Store user
-                const user = {
-                    discord_id: userData.id,
-                    username: userData.username,
-                    avatar: userData.avatar ? `https://cdn.discordapp.com/avatars/${userData.id}/${userData.avatar}.png` : null,
-                    email: userData.email,
-                    joined_at: new Date().toISOString(),
-                    is_admin: false,
-                    is_banned: false
-                };
-                
-                DATABASE.users.set(userData.id, user);
-                
-                // Create session
-                const sessionToken = generateToken();
-                DATABASE.sessions.set(sessionToken, {
-                    discord_id: userData.id,
-                    expires_at: getExpiration(24 * 7).toISOString()
-                });
-                
-                // Redirect with session
-                res.setHeader('Set-Cookie', `session=${sessionToken}; Path=/; HttpOnly; Max-Age=${7 * 24 * 60 * 60}`);
-                res.setHeader('Location', '/dashboard.html');
-                return res.status(302).end();
-                
-            } catch (err) {
-                console.error('OAuth error:', err);
-                res.setHeader('Location', '/?error=auth_failed');
-                return res.status(302).end();
-            }
-        }
-        
-        // ========== GET CURRENT USER ==========
-        if (route === 'auth/me') {
-            const cookies = req.headers.cookie || '';
-            const sessionMatch = cookies.match(/session=([^;]+)/);
-            const sessionToken = sessionMatch ? sessionMatch[1] : null;
-            
-            if (!sessionToken) {
-                return res.status(401).json({ success: false, error: 'Not authenticated' });
-            }
-            
-            const session = DATABASE.sessions.get(sessionToken);
-            
-            if (!session || new Date(session.expires_at) < new Date()) {
-                return res.status(401).json({ success: false, error: 'Session expired' });
-            }
-            
-            const user = DATABASE.users.get(session.discord_id);
-            
-            if (!user) {
-                return res.status(401).json({ success: false, error: 'User not found' });
-            }
-            
-            return res.status(200).json({
-                success: true,
-                user: {
-                    discord_id: user.discord_id,
-                    username: user.username,
-                    avatar: user.avatar,
-                    is_admin: user.is_admin,
-                    is_banned: user.is_banned
-                }
-            });
-        }
-        
-        // ========== LOGOUT ==========
-        if (route === 'auth/logout') {
-            const cookies = req.headers.cookie || '';
-            const sessionMatch = cookies.match(/session=([^;]+)/);
-            if (sessionMatch) {
-                DATABASE.sessions.delete(sessionMatch[1]);
-            }
-            
-            res.setHeader('Set-Cookie', 'session=; Path=/; HttpOnly; Max-Age=0');
-            
-            if (req.method === 'GET') {
-                res.setHeader('Location', '/');
-                return res.status(302).end();
-            }
-            
-            return res.status(200).json({ success: true });
-        }
-        
-        // ========== ADMIN STATS ==========
+
+        // ==================== ADMIN: STATS ====================
         if (route === 'admin/stats') {
-            const now = new Date();
-            const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-            
-            let activeKeys = 0;
-            let todayKeys = 0;
-            
-            for (const [, keyData] of DATABASE.keys) {
-                if (new Date(keyData.expires_at) > now) activeKeys++;
-                if (new Date(keyData.created_at) > today) todayKeys++;
-            }
-            
             return res.status(200).json({
                 success: true,
                 stats: {
-                    totalUsers: DATABASE.users.size,
-                    totalKeys: DATABASE.keys.size,
-                    activeKeys: activeKeys,
-                    todayKeys: todayKeys,
-                    bannedUsers: [...DATABASE.users.values()].filter(u => u.is_banned).length
+                    total_keys: DB.keys.size,
+                    total_hwids: DB.hwids.size,
+                    active_keys: [...DB.keys.values()].filter(k => k.expires > Date.now()).length,
+                    linkvertise_configured: !!CONFIG.LINKVERTISE_ID
                 }
             });
         }
-        
-        // ========== ADMIN USERS ==========
-        if (route === 'admin/users') {
-            const users = [...DATABASE.users.values()].map(u => ({
-                discord_id: u.discord_id,
-                username: u.username,
-                avatar: u.avatar,
-                joined_at: u.joined_at,
-                is_admin: u.is_admin,
-                is_banned: u.is_banned
-            }));
+
+        // ==================== ADMIN: CREATE KEY ====================
+        if (route === 'admin/createkey') {
+            const hwid = body.hwid || url.searchParams.get('hwid');
+            const duration = parseInt(body.duration || url.searchParams.get('duration') || '24');
             
-            return res.status(200).json({
-                success: true,
-                users: users,
-                total: users.length
+            const newKey = generateKey();
+            const expiresAt = Date.now() + (duration * 60 * 60 * 1000);
+            
+            DB.keys.set(newKey, {
+                key: newKey,
+                hwid: hwid || null,
+                created: Date.now(),
+                expires: expiresAt
             });
-        }
-        
-        // ========== ADMIN KEYS ==========
-        if (route === 'admin/keys') {
-            const keys = [...DATABASE.keys.entries()].map(([keyStr, data]) => ({
-                key: keyStr,
-                hwid: data.hwid ? data.hwid.substring(0, 8) + '...' : 'N/A',
-                created_at: data.created_at,
-                expires_at: data.expires_at,
-                is_active: new Date(data.expires_at) > new Date(),
-                use_count: data.use_count || 0
-            }));
             
-            return res.status(200).json({
-                success: true,
-                keys: keys,
-                total: keys.length
-            });
-        }
-        
-        // ========== ADMIN BAN/UNBAN ==========
-        if (route === 'admin/ban') {
-            if (req.method !== 'POST') {
-                return res.status(405).json({ success: false, error: 'Method not allowed' });
-            }
-            
-            const { discord_id, action } = body;
-            
-            if (!discord_id || !action) {
-                return res.status(400).json({ success: false, error: 'discord_id and action required' });
-            }
-            
-            const user = DATABASE.users.get(discord_id);
-            
-            if (!user) {
-                return res.status(404).json({ success: false, error: 'User not found' });
-            }
-            
-            if (action === 'ban') {
-                user.is_banned = true;
-            } else if (action === 'unban') {
-                user.is_banned = false;
-            } else if (action === 'admin') {
-                user.is_admin = true;
-            } else if (action === 'unadmin') {
-                user.is_admin = false;
+            if (hwid) {
+                const data = getHwidData(hwid);
+                data.key = newKey;
+                data.key_expires = expiresAt;
             }
             
             return res.status(200).json({
                 success: true,
-                message: `User ${action} successful`,
-                user: user
+                key: newKey,
+                expires_in: duration * 3600,
+                hwid: hwid || 'Not bound'
             });
         }
-        
-        // ========== ADMIN SETTINGS ==========
-        if (route === 'admin/settings') {
-            if (req.method === 'GET') {
-                return res.status(200).json({
-                    success: true,
-                    settings: {
-                        linkvertise: {
-                            publisher_id: DATABASE.settings.linkvertise.publisher_id,
-                            has_token: !!DATABASE.settings.linkvertise.anti_bypass_token,
-                            is_active: DATABASE.settings.linkvertise.is_active
-                        },
-                        lootlabs: {
-                            publisher_id: DATABASE.settings.lootlabs.publisher_id,
-                            has_key: !!DATABASE.settings.lootlabs.api_key,
-                            is_active: DATABASE.settings.lootlabs.is_active
-                        }
-                    }
-                });
-            }
-            
-            if (req.method === 'POST') {
-                const { integration_type, publisher_id, anti_bypass_token, api_key, is_active } = body;
-                
-                if (integration_type === 'linkvertise') {
-                    if (publisher_id !== undefined) DATABASE.settings.linkvertise.publisher_id = publisher_id;
-                    if (anti_bypass_token !== undefined) DATABASE.settings.linkvertise.anti_bypass_token = anti_bypass_token;
-                    if (is_active !== undefined) DATABASE.settings.linkvertise.is_active = is_active;
-                } else if (integration_type === 'lootlabs') {
-                    if (publisher_id !== undefined) DATABASE.settings.lootlabs.publisher_id = publisher_id;
-                    if (api_key !== undefined) DATABASE.settings.lootlabs.api_key = api_key;
-                    if (is_active !== undefined) DATABASE.settings.lootlabs.is_active = is_active;
-                }
-                
-                return res.status(200).json({
-                    success: true,
-                    message: 'Settings updated'
-                });
-            }
-        }
-        
-        // ========== LINKVERTISE CALLBACK ==========
-        if (route === 'linkvertise/callback') {
-            const requestId = url.searchParams.get('r');
-            const hwid = url.searchParams.get('hwid');
-            
-            if (!requestId || !hwid) {
-                res.setHeader('Location', '/?error=invalid_callback');
-                return res.status(302).end();
-            }
-            
-            // Generate key
-            const newKeyStr = generateKey();
-            const expiresAt = getExpiration(24);
-            
-            DATABASE.keys.set(newKeyStr, {
-                key: newKeyStr,
-                hwid: hwid,
-                created_at: new Date().toISOString(),
-                expires_at: expiresAt.toISOString(),
-                use_count: 0
-            });
-            
-            res.setHeader('Location', `/dashboard.html?key=${encodeURIComponent(newKeyStr)}&success=true`);
-            return res.status(302).end();
-        }
-        
-        // ========== 404 NOT FOUND ==========
+
+        // ==================== 404 ====================
         return res.status(404).json({
             success: false,
-            error: 'Endpoint not found',
-            route: route,
-            availableRoutes: [
-                'keys/validate',
-                'keys/generate',
-                'keys/user',
-                'auth/discord',
-                'auth/me',
-                'auth/logout',
-                'admin/stats',
-                'admin/users',
-                'admin/keys',
-                'admin/settings'
+            error: 'Route not found',
+            available_routes: [
+                'GET /api - Status',
+                'GET /api?route=getkey&hwid=XXX - Get key info',
+                'GET /api?route=checkpoint&hwid=XXX&checkpoint=1 - Get checkpoint link',
+                'POST /api?route=validate - Validate key',
+                'GET /api?route=admin/stats - Stats'
             ]
         });
-        
+
     } catch (error) {
         console.error('API Error:', error);
         return res.status(500).json({
             success: false,
-            error: 'Internal server error',
+            error: 'Server error',
             message: error.message
         });
     }
