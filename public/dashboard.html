@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - Lua Guard</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="dashboard-page">
+    <!-- Background -->
+    <div class="bg-animation">
+        <div class="bg-gradient"></div>
+    </div>
+
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="/" class="nav-logo">
+                <i class="fas fa-shield-alt"></i>
+                <span>Lua Guard</span>
+            </a>
+            <div class="nav-links">
+                <a href="/dashboard" class="active">Dashboard</a>
+                <a href="#" id="admin-link" style="display: none;">Admin Panel</a>
+            </div>
+            <div class="nav-auth" id="nav-auth">
+                <div class="user-menu" id="user-menu">
+                    <img src="" alt="Avatar" class="user-avatar" id="user-avatar">
+                    <span class="user-name" id="user-name">Loading...</span>
+                    <i class="fas fa-chevron-down"></i>
+                    <div class="user-dropdown">
+                        <a href="#" onclick="logout()"><i class="fas fa-sign-out-alt"></i> Logout</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Dashboard Content -->
+    <main class="dashboard-main">
+        <div class="container">
+            <!-- Welcome Section -->
+            <div class="dashboard-header">
+                <div class="welcome-text">
+                    <h1>Welcome back, <span id="welcome-name">User</span>!</h1>
+                    <p>Manage your keys and access your scripts.</p>
+                </div>
+                <div class="header-actions">
+                    <button class="btn btn-primary" id="generate-key-btn" onclick="generateKey()">
+                        <i class="fas fa-key"></i>
+                        Generate New Key
+                    </button>
+                </div>
+            </div>
+
+            <!-- Active Key Card -->
+            <div class="key-card" id="active-key-card" style="display: none;">
+                <div class="key-card-header">
+                    <div class="key-status active">
+                        <i class="fas fa-check-circle"></i>
+                        <span>Active Key</span>
+                    </div>
+                    <div class="key-timer" id="key-timer">
+                        <i class="fas fa-clock"></i>
+                        <span id="time-remaining">--:--:--</span>
+                    </div>
+                </div>
+                <div class="key-display">
+                    <code id="current-key">LUAGUARD-XXXX-XXXX-XXXX-XXXX</code>
+                    <button class="btn btn-icon" onclick="copyKey()" title="Copy Key">
+                        <i class="fas fa-copy"></i>
+                    </button>
+                </div>
+                <div class="key-info">
+                    <div class="key-info-item">
+                        <span class="label">Created</span>
+                        <span class="value" id="key-created">--</span>
+                    </div>
+                    <div class="key-info-item">
+                        <span class="label">Expires</span>
+                        <span class="value" id="key-expires">--</span>
+                    </div>
+                    <div class="key-info-item">
+                        <span class="label">HWID</span>
+                        <span class="value" id="key-hwid">--</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- No Key Card -->
+            <div class="key-card no-key" id="no-key-card">
+                <div class="no-key-content">
+                    <i class="fas fa-key"></i>
+                    <h3>No Active Key</h3>
+                    <p>Generate a new key to access your scripts.</p>
+                    <button class="btn btn-primary" onclick="generateKey()">
+                        <i class="fas fa-plus"></i>
+                        Generate Key
+                    </button>
+                </div>
+            </div>
+
+            <!-- Stats Cards -->
+            <div class="dashboard-stats">
+                <div class="stat-card small">
+                    <div class="stat-icon">
+                        <i class="fas fa-key"></i>
+                    </div>
+                    <div class="stat-info">
+                        <span class="stat-value" id="user-total-keys">0</span>
+                        <span class="stat-name">Total Keys Generated</span>
+                    </div>
+                </div>
+                <div class="stat-card small">
+                    <div class="stat-icon">
+                        <i class="fas fa-calendar"></i>
+                    </div>
+                    <div class="stat-info">
+                        <span class="stat-value" id="user-join-date">--</span>
+                        <span class="stat-name">Member Since</span>
+                    </div>
+                </div>
+                <div class="stat-card small">
+                    <div class="stat-icon">
+                        <i class="fas fa-star"></i>
+                    </div>
+                    <div class="stat-info">
+                        <span class="stat-value" id="user-status">Standard</span>
+                        <span class="stat-name">Account Status</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Key History -->
+            <div class="dashboard-section">
+                <div class="section-header">
+                    <h2><i class="fas fa-history"></i> Key History</h2>
+                </div>
+                <div class="keys-table-container">
+                    <table class="keys-table">
+                        <thead>
+                            <tr>
+                                <th>Key</th>
+                                <th>Created</th>
+                                <th>Expires</th>
+                                <th>Status</th>
+                                <th>Uses</th>
+                            </tr>
+                        </thead>
+                        <tbody id="keys-table-body">
+                            <tr class="empty-row">
+                                <td colspan="5">No keys found</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Script Loader -->
+            <div class="dashboard-section">
+                <div class="section-header">
+                    <h2><i class="fas fa-code"></i> Script Loader</h2>
+                </div>
+                <div class="script-loader-card">
+                    <p>Copy this script and run it in your executor:</p>
+                    <div class="code-block">
+                        <pre><code>loadstring(game:HttpGet("https://lua-guard-test.vercel.app/lua/loader.lua"))()</code></pre>
+                        <button class="btn btn-icon" onclick="copyScript()" title="Copy Script">
+                            <i class="fas fa-copy"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loading-overlay">
+        <div class="loading-spinner">
+            <i class="fas fa-spinner fa-spin"></i>
+            <span>Loading...</span>
+        </div>
+    </div>
+
+    <!-- Verification Modal -->
+    <div class="modal" id="verification-modal">
+        <div class="modal-content">
+            <div class="modal-icon">
+                <i class="fas fa-link"></i>
+            </div>
+            <h3>Complete Verification</h3>
+            <p>Complete the Linkvertise task to generate your key.</p>
+            <a href="#" id="verification-link" class="btn btn-primary" target="_blank">
+                <i class="fas fa-external-link-alt"></i>
+                Open Verification
+            </a>
+            <div class="verification-status" id="verification-status">
+                <i class="fas fa-spinner fa-spin"></i>
+                <span>Waiting for completion...</span>
+            </div>
+            <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+        </div>
+    </div>
+
+    <!-- Success Modal -->
+    <div class="modal" id="success-modal">
+        <div class="modal-content">
+            <div class="modal-icon success">
+                <i class="fas fa-check-circle"></i>
+            </div>
+            <h3>Key Generated!</h3>
+            <div class="generated-key">
+                <code id="generated-key-display">LUAGUARD-XXXX-XXXX-XXXX-XXXX</code>
+                <button class="btn btn-icon" onclick="copyGeneratedKey()" title="Copy Key">
+                    <i class="fas fa-copy"></i>
+                </button>
+            </div>
+            <p>Your key is valid for 24 hours.</p>
+            <button class="btn btn-primary" onclick="closeSuccessModal()">Done</button>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div class="toast" id="toast">
+        <i class="fas fa-check-circle"></i>
+        <span id="toast-message">Copied to clipboard!</span>
+    </div>
+
+    <script src="/js/dashboard.js"></script>
+</body>
+</html>
