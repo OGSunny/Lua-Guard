@@ -1,432 +1,469 @@
 const crypto = require('crypto');
 
 // ============================================
-// DATABASE (In-Memory)
+// DATABASE
 // ============================================
 const DB = {
     keys: new Map(),
-    checkpoints: new Map(),
+    hwids: new Map(),
     users: new Map(),
-    hwids: new Map()
+    sessions: new Map(),
+    config: {
+        linkvertise_id: process.env.LINKVERTISE_PUBLISHER_ID || '',
+        discord_webhook: process.env.DISCORD_WEBHOOK_URL || '',
+        key_duration: 24,
+        checkpoints: 2,
+        site_name: 'Lua Guard'
+    }
 };
 
-// ============================================
-// CONFIG
-// ============================================
-const CONFIG = {
-    LINKVERTISE_ID: process.env.LINKVERTISE_PUBLISHER_ID || '',
-    KEY_DURATION: 24 * 60 * 60 * 1000, // 24 hours
-    CHECKPOINTS_REQUIRED: 2,
-    BASE_URL: process.env.BASE_URL || 'https://lua-guard-test.vercel.app'
-};
+// Pre-add some demo data
+DB.keys.set('TEST-KEY-12345', {
+    key: 'TEST-KEY-12345',
+    hwid: null,
+    note: 'Test Key',
+    created: Date.now(),
+    expires: Date.now() + (365 * 24 * 60 * 60 * 1000),
+    uses: 0
+});
 
 // ============================================
 // HELPERS
 // ============================================
-function generateKey() {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-    let key = 'LUAGUARD-';
-    for (let i = 0; i < 4; i++) {
+const generateKey = () => {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    let key = 'LG-';
+    for (let i = 0; i < 3; i++) {
         if (i > 0) key += '-';
         for (let j = 0; j < 4; j++) {
-            key += chars.charAt(Math.floor(Math.random() * chars.length));
+            key += chars[Math.floor(Math.random() * chars.length)];
         }
     }
     return key;
-}
+};
 
-function generateCheckpointId() {
-    return crypto.randomBytes(16).toString('hex');
-}
+const generateId = () => crypto.randomBytes(16).toString('hex');
 
-function getHwidData(hwid) {
+const formatDuration = (ms) => {
+    if (ms <= 0) return 'Expired';
+    const h = Math.floor(ms / 3600000);
+    const m = Math.floor((ms % 3600000) / 60000);
+    if (h > 24) return `${Math.floor(h / 24)}d ${h % 24}h`;
+    return `${h}h ${m}m`;
+};
+
+const getHwid = (hwid) => {
     if (!DB.hwids.has(hwid)) {
         DB.hwids.set(hwid, {
-            hwid: hwid,
-            checkpoints: 0,
-            checkpoint_id: null,
+            hwid,
+            checkpoints: [],
+            checkpoint_token: generateId(),
             key: null,
-            key_expires: null,
-            created: Date.now()
+            expires: null,
+            ip: null,
+            created: Date.now(),
+            last_seen: Date.now()
         });
     }
-    return DB.hwids.get(hwid);
-}
+    const data = DB.hwids.get(hwid);
+    data.last_seen = Date.now();
+    return data;
+};
 
-function createLinkvertiseUrl(targetUrl) {
-    const linkvertiseId = CONFIG.LINKVERTISE_ID;
-    if (!linkvertiseId) {
-        return targetUrl;
-    }
-    // Dynamic Linkvertise link
-    const encoded = Buffer.from(targetUrl).toString('base64');
-    return `https://link-to.net/${linkvertiseId}/dynamic?r=${encoded}`;
-}
+const getLinkvertiseUrl = (target) => {
+    const id = DB.config.linkvertise_id;
+    if (!id) return target;
+    const encoded = Buffer.from(target).toString('base64url');
+    return `https://link-to.net/${id}/dynamic?r=${encoded}`;
+};
 
-function setCors(res) {
+const sendWebhook = async (embed) => {
+    if (!DB.config.discord_webhook) return;
+    try {
+        await fetch(DB.config.discord_webhook, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ embeds: [embed] })
+        });
+    } catch (e) {}
+};
+
+const cors = (res) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-HWID');
-}
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-HWID');
+};
+
+const BASE = process.env.BASE_URL || 'https://lua-guard-test.vercel.app';
 
 // ============================================
 // MAIN HANDLER
 // ============================================
 module.exports = async (req, res) => {
-    setCors(res);
-    
-    if (req.method === 'OPTIONS') {
-        return res.status(200).end();
-    }
-    
+    cors(res);
+    if (req.method === 'OPTIONS') return res.status(200).end();
+
     const url = new URL(req.url, `http://${req.headers.host}`);
-    const route = url.searchParams.get('route') || url.pathname.replace('/api/', '').replace('/api', '') || '';
+    const path = url.pathname.replace('/api', '').replace(/^\/+|\/+$/g, '');
+    const route = url.searchParams.get('route') || path;
+    const query = Object.fromEntries(url.searchParams);
     
     let body = {};
-    if (req.body) {
-        body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
-    }
-    
     try {
-        // ==================== API STATUS ====================
-        if (route === '' || route === '/') {
-            return res.status(200).json({
-                success: true,
-                name: 'Lua Guard API',
-                version: '2.0.0',
-                status: 'online'
-            });
-        }
+        if (req.body) body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+    } catch (e) {}
 
-        // ==================== GET KEY PAGE INFO ====================
-        if (route === 'getkey' || route === 'key/info') {
-            const hwid = url.searchParams.get('hwid') || body.hwid || req.headers['x-hwid'];
-            
-            if (!hwid) {
-                return res.status(400).json({ success: false, error: 'HWID required' });
-            }
-            
-            const data = getHwidData(hwid);
-            
-            // Check if already has valid key
-            if (data.key && data.key_expires > Date.now()) {
-                return res.status(200).json({
-                    success: true,
-                    has_key: true,
-                    key: data.key,
-                    expires_in: Math.floor((data.key_expires - Date.now()) / 1000),
-                    expires_at: new Date(data.key_expires).toISOString()
-                });
-            }
-            
-            // Generate checkpoint ID if not exists
-            if (!data.checkpoint_id) {
-                data.checkpoint_id = generateCheckpointId();
-                data.checkpoints = 0;
-            }
-            
-            return res.status(200).json({
-                success: true,
-                has_key: false,
-                checkpoints_completed: data.checkpoints,
-                checkpoints_required: CONFIG.CHECKPOINTS_REQUIRED,
-                checkpoint_id: data.checkpoint_id,
-                hwid: hwid
-            });
-        }
+    const json = (data, status = 200) => res.status(status).json(data);
+    const redirect = (url) => { res.setHeader('Location', url); return res.status(302).end(); };
 
-        // ==================== GET CHECKPOINT LINK ====================
-        if (route === 'checkpoint' || route === 'key/checkpoint') {
-            const hwid = url.searchParams.get('hwid') || body.hwid;
-            const checkpoint = parseInt(url.searchParams.get('checkpoint') || body.checkpoint || '1');
-            
-            if (!hwid) {
-                return res.status(400).json({ success: false, error: 'HWID required' });
-            }
-            
-            const data = getHwidData(hwid);
-            
-            // Check if already has valid key
-            if (data.key && data.key_expires > Date.now()) {
-                return res.status(200).json({
-                    success: true,
-                    has_key: true,
-                    key: data.key,
-                    message: 'You already have a valid key!'
-                });
-            }
-            
-            // Generate checkpoint ID if not exists
-            if (!data.checkpoint_id) {
-                data.checkpoint_id = generateCheckpointId();
-            }
-            
-            // Create callback URL for this checkpoint
-            const callbackUrl = `${CONFIG.BASE_URL}/api?route=checkpoint/complete&hwid=${hwid}&cp=${checkpoint}&token=${data.checkpoint_id}`;
-            
-            // Create Linkvertise URL
-            const linkvertiseUrl = createLinkvertiseUrl(callbackUrl);
-            
-            return res.status(200).json({
-                success: true,
-                checkpoint: checkpoint,
-                total_checkpoints: CONFIG.CHECKPOINTS_REQUIRED,
-                url: linkvertiseUrl,
-                callback: callbackUrl
-            });
-        }
-
-        // ==================== CHECKPOINT COMPLETE (CALLBACK) ====================
-        if (route === 'checkpoint/complete') {
-            const hwid = url.searchParams.get('hwid');
-            const checkpoint = parseInt(url.searchParams.get('cp') || '1');
-            const token = url.searchParams.get('token');
-            
-            if (!hwid || !token) {
-                res.setHeader('Location', `${CONFIG.BASE_URL}/getkey.html?error=invalid`);
-                return res.status(302).end();
-            }
-            
-            const data = getHwidData(hwid);
-            
-            // Verify token
-            if (data.checkpoint_id !== token) {
-                res.setHeader('Location', `${CONFIG.BASE_URL}/getkey.html?hwid=${hwid}&error=invalid_token`);
-                return res.status(302).end();
-            }
-            
-            // Update checkpoint count
-            if (checkpoint > data.checkpoints) {
-                data.checkpoints = checkpoint;
-            }
-            
-            // Check if all checkpoints complete
-            if (data.checkpoints >= CONFIG.CHECKPOINTS_REQUIRED) {
-                // Generate key!
-                const newKey = generateKey();
-                const expiresAt = Date.now() + CONFIG.KEY_DURATION;
-                
-                data.key = newKey;
-                data.key_expires = expiresAt;
-                data.checkpoint_id = null;
-                data.checkpoints = 0;
-                
-                // Store key in keys DB too
-                DB.keys.set(newKey, {
-                    key: newKey,
-                    hwid: hwid,
-                    created: Date.now(),
-                    expires: expiresAt
-                });
-                
-                // Redirect to success page
-                res.setHeader('Location', `${CONFIG.BASE_URL}/getkey.html?hwid=${hwid}&key=${newKey}&success=true`);
-                return res.status(302).end();
-            }
-            
-            // Redirect back to get next checkpoint
-            res.setHeader('Location', `${CONFIG.BASE_URL}/getkey.html?hwid=${hwid}&cp=${data.checkpoints}`);
-            return res.status(302).end();
-        }
-
-        // ==================== VALIDATE KEY ====================
-        if (route === 'validate' || route === 'key/validate') {
-            const key = body.key || url.searchParams.get('key');
-            const hwid = body.hwid || url.searchParams.get('hwid') || req.headers['x-hwid'];
-            
-            if (!key || !hwid) {
-                return res.status(400).json({
-                    success: false,
-                    valid: false,
-                    error: 'Key and HWID are required'
-                });
-            }
-            
-            // Check test key
-            if (key === 'TEST-KEY-12345') {
-                return res.status(200).json({
-                    success: true,
-                    valid: true,
-                    message: 'Test key validated!',
-                    expires_in: 86400
-                });
-            }
-            
-            // Check HWID data
-            const data = getHwidData(hwid);
-            
-            if (data.key === key && data.key_expires > Date.now()) {
-                return res.status(200).json({
-                    success: true,
-                    valid: true,
-                    expires_in: Math.floor((data.key_expires - Date.now()) / 1000),
-                    expires_at: new Date(data.key_expires).toISOString()
-                });
-            }
-            
-            // Check keys DB
-            const keyData = DB.keys.get(key);
-            
-            if (keyData) {
-                if (keyData.hwid !== hwid) {
-                    return res.status(200).json({
-                        success: false,
-                        valid: false,
-                        error: 'Key is bound to a different device'
-                    });
-                }
-                
-                if (keyData.expires < Date.now()) {
-                    return res.status(200).json({
-                        success: false,
-                        valid: false,
-                        error: 'Key has expired'
-                    });
-                }
-                
-                return res.status(200).json({
-                    success: true,
-                    valid: true,
-                    expires_in: Math.floor((keyData.expires - Date.now()) / 1000)
-                });
-            }
-            
-            return res.status(200).json({
-                success: false,
-                valid: false,
-                error: 'Invalid key'
-            });
-        }
-
-        // ==================== REDEEM KEY (Manual Entry) ====================
-        if (route === 'redeem' || route === 'key/redeem') {
-            const key = body.key || url.searchParams.get('key');
-            const hwid = body.hwid || url.searchParams.get('hwid');
-            
-            if (!key || !hwid) {
-                return res.status(400).json({
-                    success: false,
-                    error: 'Key and HWID required'
-                });
-            }
-            
-            const keyData = DB.keys.get(key);
-            
-            if (!keyData) {
-                return res.status(200).json({
-                    success: false,
-                    error: 'Invalid key'
-                });
-            }
-            
-            if (keyData.hwid && keyData.hwid !== hwid) {
-                return res.status(200).json({
-                    success: false,
-                    error: 'Key is already bound to another device'
-                });
-            }
-            
-            if (keyData.expires < Date.now()) {
-                return res.status(200).json({
-                    success: false,
-                    error: 'Key has expired'
-                });
-            }
-            
-            // Bind to HWID if not already
-            if (!keyData.hwid) {
-                keyData.hwid = hwid;
-            }
-            
-            // Update HWID data
-            const data = getHwidData(hwid);
-            data.key = key;
-            data.key_expires = keyData.expires;
-            
-            return res.status(200).json({
-                success: true,
-                message: 'Key redeemed successfully!',
-                expires_in: Math.floor((keyData.expires - Date.now()) / 1000)
-            });
-        }
-
-        // ==================== ADMIN: SET LINKVERTISE ID ====================
-        if (route === 'admin/linkvertise') {
-            if (req.method !== 'POST') {
-                return res.status(200).json({
-                    success: true,
-                    publisher_id: CONFIG.LINKVERTISE_ID || 'Not set',
-                    message: 'Set LINKVERTISE_PUBLISHER_ID in Vercel environment variables'
-                });
-            }
-            
-            return res.status(200).json({
-                success: true,
-                message: 'Set LINKVERTISE_PUBLISHER_ID in Vercel environment variables'
-            });
-        }
-
-        // ==================== ADMIN: STATS ====================
-        if (route === 'admin/stats') {
-            return res.status(200).json({
-                success: true,
-                stats: {
-                    total_keys: DB.keys.size,
-                    total_hwids: DB.hwids.size,
-                    active_keys: [...DB.keys.values()].filter(k => k.expires > Date.now()).length,
-                    linkvertise_configured: !!CONFIG.LINKVERTISE_ID
-                }
-            });
-        }
-
-        // ==================== ADMIN: CREATE KEY ====================
-        if (route === 'admin/createkey') {
-            const hwid = body.hwid || url.searchParams.get('hwid');
-            const duration = parseInt(body.duration || url.searchParams.get('duration') || '24');
-            
-            const newKey = generateKey();
-            const expiresAt = Date.now() + (duration * 60 * 60 * 1000);
-            
-            DB.keys.set(newKey, {
-                key: newKey,
-                hwid: hwid || null,
-                created: Date.now(),
-                expires: expiresAt
-            });
-            
-            if (hwid) {
-                const data = getHwidData(hwid);
-                data.key = newKey;
-                data.key_expires = expiresAt;
-            }
-            
-            return res.status(200).json({
-                success: true,
-                key: newKey,
-                expires_in: duration * 3600,
-                hwid: hwid || 'Not bound'
-            });
-        }
-
-        // ==================== 404 ====================
-        return res.status(404).json({
-            success: false,
-            error: 'Route not found',
-            available_routes: [
-                'GET /api - Status',
-                'GET /api?route=getkey&hwid=XXX - Get key info',
-                'GET /api?route=checkpoint&hwid=XXX&checkpoint=1 - Get checkpoint link',
-                'POST /api?route=validate - Validate key',
-                'GET /api?route=admin/stats - Stats'
-            ]
-        });
-
-    } catch (error) {
-        console.error('API Error:', error);
-        return res.status(500).json({
-            success: false,
-            error: 'Server error',
-            message: error.message
+    // ==================== ROUTES ====================
+    
+    // Status
+    if (!route || route === 'status') {
+        return json({
+            success: true,
+            name: 'Lua Guard API',
+            version: '3.0.0',
+            status: 'operational'
         });
     }
+
+    // ==================== KEY SYSTEM ====================
+
+    // Get Key Info
+    if (route === 'key/info' || route === 'getkey') {
+        const hwid = query.hwid || body.hwid || req.headers['x-hwid'];
+        if (!hwid) return json({ success: false, error: 'HWID required' }, 400);
+
+        const data = getHwid(hwid);
+        
+        // Check existing key
+        if (data.key && data.expires > Date.now()) {
+            return json({
+                success: true,
+                status: 'active',
+                key: data.key,
+                expires: data.expires,
+                expires_in: formatDuration(data.expires - Date.now())
+            });
+        }
+
+        // Need checkpoints
+        const completed = data.checkpoints.length;
+        const required = DB.config.checkpoints;
+
+        return json({
+            success: true,
+            status: 'pending',
+            checkpoints_completed: completed,
+            checkpoints_required: required,
+            token: data.checkpoint_token
+        });
+    }
+
+    // Get Checkpoint URL
+    if (route === 'key/checkpoint') {
+        const hwid = query.hwid || body.hwid;
+        const step = parseInt(query.step || body.step || '1');
+        
+        if (!hwid) return json({ success: false, error: 'HWID required' }, 400);
+
+        const data = getHwid(hwid);
+        
+        // Already has key?
+        if (data.key && data.expires > Date.now()) {
+            return json({ success: true, status: 'active', key: data.key });
+        }
+
+        const callback = `${BASE}/api?route=key/verify&hwid=${hwid}&step=${step}&t=${data.checkpoint_token}`;
+        const linkUrl = getLinkvertiseUrl(callback);
+
+        return json({
+            success: true,
+            step: step,
+            total: DB.config.checkpoints,
+            url: linkUrl
+        });
+    }
+
+    // Verify Checkpoint (callback from Linkvertise)
+    if (route === 'key/verify') {
+        const { hwid, step, t } = query;
+        
+        if (!hwid || !t) return redirect(`${BASE}/get-key?error=invalid`);
+
+        const data = getHwid(hwid);
+        
+        // Verify token
+        if (data.checkpoint_token !== t) {
+            return redirect(`${BASE}/get-key?hwid=${hwid}&error=token`);
+        }
+
+        // Add checkpoint
+        const stepNum = parseInt(step || '1');
+        if (!data.checkpoints.includes(stepNum)) {
+            data.checkpoints.push(stepNum);
+        }
+
+        // Check if complete
+        if (data.checkpoints.length >= DB.config.checkpoints) {
+            // Generate key!
+            const key = generateKey();
+            const expires = Date.now() + (DB.config.key_duration * 60 * 60 * 1000);
+
+            data.key = key;
+            data.expires = expires;
+            data.checkpoints = [];
+            data.checkpoint_token = generateId();
+
+            DB.keys.set(key, {
+                key,
+                hwid,
+                created: Date.now(),
+                expires,
+                uses: 0,
+                note: 'Auto-generated'
+            });
+
+            // Webhook
+            sendWebhook({
+                title: '🔑 New Key Generated',
+                color: 0x57F287,
+                fields: [
+                    { name: 'Key', value: `\`${key}\``, inline: true },
+                    { name: 'HWID', value: `\`${hwid.slice(0, 12)}...\``, inline: true },
+                    { name: 'Expires', value: formatDuration(expires - Date.now()), inline: true }
+                ],
+                timestamp: new Date().toISOString()
+            });
+
+            return redirect(`${BASE}/get-key?hwid=${hwid}&key=${key}&success=1`);
+        }
+
+        return redirect(`${BASE}/get-key?hwid=${hwid}&step=${data.checkpoints.length}`);
+    }
+
+    // Validate Key
+    if (route === 'key/validate' || route === 'validate') {
+        const key = query.key || body.key;
+        const hwid = query.hwid || body.hwid || req.headers['x-hwid'];
+
+        if (!key) return json({ success: false, error: 'Key required' }, 400);
+        if (!hwid) return json({ success: false, error: 'HWID required' }, 400);
+
+        const keyData = DB.keys.get(key);
+
+        if (!keyData) {
+            return json({ success: false, valid: false, error: 'Invalid key' });
+        }
+
+        if (keyData.expires < Date.now()) {
+            return json({ success: false, valid: false, error: 'Key expired' });
+        }
+
+        if (keyData.hwid && keyData.hwid !== hwid) {
+            return json({ success: false, valid: false, error: 'Key bound to another device' });
+        }
+
+        // Bind if not bound
+        if (!keyData.hwid) {
+            keyData.hwid = hwid;
+            const hwidData = getHwid(hwid);
+            hwidData.key = key;
+            hwidData.expires = keyData.expires;
+        }
+
+        keyData.uses++;
+        keyData.last_used = Date.now();
+
+        return json({
+            success: true,
+            valid: true,
+            expires_in: formatDuration(keyData.expires - Date.now()),
+            expires: keyData.expires
+        });
+    }
+
+    // Redeem Key
+    if (route === 'key/redeem') {
+        const key = query.key || body.key;
+        const hwid = query.hwid || body.hwid;
+
+        if (!key || !hwid) return json({ success: false, error: 'Key and HWID required' }, 400);
+
+        const keyData = DB.keys.get(key);
+        if (!keyData) return json({ success: false, error: 'Invalid key' });
+        if (keyData.expires < Date.now()) return json({ success: false, error: 'Key expired' });
+        if (keyData.hwid && keyData.hwid !== hwid) return json({ success: false, error: 'Key bound to another device' });
+
+        keyData.hwid = hwid;
+        const hwidData = getHwid(hwid);
+        hwidData.key = key;
+        hwidData.expires = keyData.expires;
+
+        return json({
+            success: true,
+            message: 'Key redeemed!',
+            expires_in: formatDuration(keyData.expires - Date.now())
+        });
+    }
+
+    // ==================== ADMIN ====================
+
+    // Stats
+    if (route === 'admin/stats') {
+        const now = Date.now();
+        const keys = [...DB.keys.values()];
+        const hwids = [...DB.hwids.values()];
+
+        return json({
+            success: true,
+            stats: {
+                total_keys: keys.length,
+                active_keys: keys.filter(k => k.expires > now).length,
+                expired_keys: keys.filter(k => k.expires <= now).length,
+                total_hwids: hwids.length,
+                active_hwids: hwids.filter(h => h.expires && h.expires > now).length,
+                keys_today: keys.filter(k => k.created > now - 86400000).length,
+                total_validations: keys.reduce((a, k) => a + (k.uses || 0), 0)
+            },
+            config: {
+                linkvertise_configured: !!DB.config.linkvertise_id,
+                webhook_configured: !!DB.config.discord_webhook,
+                key_duration: DB.config.key_duration,
+                checkpoints: DB.config.checkpoints
+            }
+        });
+    }
+
+    // Get All Keys
+    if (route === 'admin/keys') {
+        const keys = [...DB.keys.values()].map(k => ({
+            ...k,
+            hwid: k.hwid ? k.hwid.slice(0, 12) + '...' : null,
+            status: k.expires > Date.now() ? 'active' : 'expired',
+            expires_in: formatDuration(k.expires - Date.now())
+        })).sort((a, b) => b.created - a.created);
+
+        return json({ success: true, keys, total: keys.length });
+    }
+
+    // Create Key
+    if (route === 'admin/keys/create') {
+        if (req.method !== 'POST') return json({ success: false, error: 'POST required' }, 405);
+
+        const duration = parseInt(body.duration || 24);
+        const amount = Math.min(parseInt(body.amount || 1), 50);
+        const hwid = body.hwid || null;
+        const note = body.note || '';
+
+        const created = [];
+        for (let i = 0; i < amount; i++) {
+            const key = generateKey();
+            const expires = Date.now() + (duration * 60 * 60 * 1000);
+            
+            DB.keys.set(key, { key, hwid, note, created: Date.now(), expires, uses: 0 });
+            created.push(key);
+
+            if (hwid) {
+                const hwidData = getHwid(hwid);
+                hwidData.key = key;
+                hwidData.expires = expires;
+            }
+        }
+
+        sendWebhook({
+            title: '🔧 Keys Created (Admin)',
+            color: 0x5865F2,
+            fields: [
+                { name: 'Amount', value: `${amount}`, inline: true },
+                { name: 'Duration', value: `${duration}h`, inline: true },
+                { name: 'Keys', value: created.map(k => `\`${k}\``).join('\n').slice(0, 1000) }
+            ],
+            timestamp: new Date().toISOString()
+        });
+
+        return json({ success: true, keys: created, duration: `${duration}h` });
+    }
+
+    // Delete Key
+    if (route === 'admin/keys/delete') {
+        const key = query.key || body.key;
+        if (!key) return json({ success: false, error: 'Key required' }, 400);
+
+        if (DB.keys.has(key)) {
+            DB.keys.delete(key);
+            return json({ success: true, message: 'Key deleted' });
+        }
+        return json({ success: false, error: 'Key not found' });
+    }
+
+    // Get All HWIDs
+    if (route === 'admin/hwids') {
+        const hwids = [...DB.hwids.values()].map(h => ({
+            hwid: h.hwid.slice(0, 16) + '...',
+            hwid_full: h.hwid,
+            has_key: !!(h.key && h.expires > Date.now()),
+            key: h.key,
+            expires_in: h.expires ? formatDuration(h.expires - Date.now()) : null,
+            checkpoints: h.checkpoints.length,
+            created: h.created,
+            last_seen: h.last_seen
+        })).sort((a, b) => b.last_seen - a.last_seen);
+
+        return json({ success: true, hwids, total: hwids.length });
+    }
+
+    // Reset HWID
+    if (route === 'admin/hwids/reset') {
+        const hwid = query.hwid || body.hwid;
+        const key = query.key || body.key;
+
+        if (key) {
+            const keyData = DB.keys.get(key);
+            if (keyData) {
+                keyData.hwid = null;
+                return json({ success: true, message: 'Key HWID reset' });
+            }
+        }
+
+        if (hwid && DB.hwids.has(hwid)) {
+            const data = DB.hwids.get(hwid);
+            data.key = null;
+            data.expires = null;
+            data.checkpoints = [];
+            return json({ success: true, message: 'HWID reset' });
+        }
+
+        return json({ success: false, error: 'Not found' });
+    }
+
+    // Update Config
+    if (route === 'admin/config') {
+        if (req.method === 'GET') {
+            return json({
+                success: true,
+                config: {
+                    linkvertise_id: DB.config.linkvertise_id ? '****' + DB.config.linkvertise_id.slice(-4) : '',
+                    discord_webhook: DB.config.discord_webhook ? '****' : '',
+                    key_duration: DB.config.key_duration,
+                    checkpoints: DB.config.checkpoints,
+                    site_name: DB.config.site_name
+                }
+            });
+        }
+
+        if (req.method === 'POST') {
+            if (body.linkvertise_id !== undefined) DB.config.linkvertise_id = body.linkvertise_id;
+            if (body.discord_webhook !== undefined) DB.config.discord_webhook = body.discord_webhook;
+            if (body.key_duration !== undefined) DB.config.key_duration = parseInt(body.key_duration);
+            if (body.checkpoints !== undefined) DB.config.checkpoints = parseInt(body.checkpoints);
+            if (body.site_name !== undefined) DB.config.site_name = body.site_name;
+
+            return json({ success: true, message: 'Config updated' });
+        }
+    }
+
+    // ==================== 404 ====================
+    return json({ success: false, error: 'Not found', route }, 404);
 };
