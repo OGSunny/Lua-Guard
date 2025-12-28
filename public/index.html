@@ -3,286 +3,643 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Lua Guard - Key System</title>
+    <title>Lua Guard - Premium Key System</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            font-family: 'Segoe UI', sans-serif;
-            background: linear-gradient(135deg, #0a0a0f 0%, #1a1a2e 100%);
-            min-height: 100vh;
-            color: #fff;
+        :root {
+            --bg-primary: #0a0a0f;
+            --bg-secondary: #111118;
+            --bg-card: #16161d;
+            --bg-hover: #1c1c25;
+            --accent: #6366f1;
+            --accent-hover: #818cf8;
+            --success: #22c55e;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --text-primary: #ffffff;
+            --text-secondary: #a1a1aa;
+            --text-muted: #71717a;
+            --border: #27272a;
+            --glow: rgba(99, 102, 241, 0.4);
         }
+        
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+        
+        /* Animated Background */
+        .bg-effects {
+            position: fixed;
+            inset: 0;
+            z-index: -1;
+            overflow: hidden;
+        }
+        
+        .bg-gradient {
+            position: absolute;
+            width: 150%;
+            height: 150%;
+            top: -25%;
+            left: -25%;
+            background: 
+                radial-gradient(ellipse at 20% 20%, rgba(99, 102, 241, 0.15) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 80%, rgba(139, 92, 246, 0.1) 0%, transparent 50%),
+                radial-gradient(ellipse at 50% 50%, rgba(34, 197, 94, 0.05) 0%, transparent 60%);
+            animation: rotateBg 60s linear infinite;
+        }
+        
+        @keyframes rotateBg {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        
+        .grid-overlay {
+            position: absolute;
+            inset: 0;
+            background-image: 
+                linear-gradient(rgba(99, 102, 241, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(99, 102, 241, 0.03) 1px, transparent 1px);
+            background-size: 50px 50px;
+        }
+        
+        /* Navbar */
         .navbar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 100;
+            padding: 1rem 2rem;
+            background: rgba(10, 10, 15, 0.8);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .nav-container {
+            max-width: 1400px;
+            margin: 0 auto;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 20px 50px;
-            background: rgba(0,0,0,0.3);
-            border-bottom: 1px solid rgba(255,255,255,0.1);
         }
-        .logo { font-size: 1.5rem; font-weight: bold; display: flex; align-items: center; gap: 10px; }
-        .logo span { color: #5865F2; }
-        .nav-links { display: flex; gap: 20px; }
-        .nav-links a { color: #888; text-decoration: none; transition: 0.3s; }
-        .nav-links a:hover { color: #fff; }
-        .btn {
-            padding: 12px 25px;
+        
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 1.5rem;
+            font-weight: 800;
+            text-decoration: none;
+            color: var(--text-primary);
+        }
+        
+        .logo i {
+            font-size: 1.8rem;
+            background: linear-gradient(135deg, var(--accent), #a855f7);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        .nav-links {
+            display: flex;
+            align-items: center;
+            gap: 2rem;
+        }
+        
+        .nav-links a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.3s;
+        }
+        
+        .nav-links a:hover { color: var(--text-primary); }
+        
+        .nav-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 20px;
+            background: var(--accent);
+            color: white;
             border-radius: 8px;
             text-decoration: none;
             font-weight: 600;
             transition: all 0.3s;
-            border: none;
-            cursor: pointer;
-            font-size: 1rem;
         }
-        .btn-primary { background: #5865F2; color: #fff; }
-        .btn-primary:hover { background: #4752C4; transform: translateY(-2px); }
-        .btn-secondary { background: transparent; border: 1px solid #5865F2; color: #fff; }
-        .btn-secondary:hover { background: rgba(88,101,242,0.1); }
+        
+        .nav-btn:hover {
+            background: var(--accent-hover);
+            transform: translateY(-2px);
+            box-shadow: 0 10px 40px var(--glow);
+        }
+        
+        /* Hero */
         .hero {
+            min-height: 100vh;
             display: flex;
             align-items: center;
-            justify-content: center;
-            min-height: calc(100vh - 80px);
-            padding: 50px;
+            padding: 120px 2rem 80px;
+        }
+        
+        .hero-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
             gap: 80px;
+            align-items: center;
         }
-        .hero-content { max-width: 550px; }
-        .badge {
-            display: inline-block;
-            background: rgba(88,101,242,0.1);
-            border: 1px solid rgba(88,101,242,0.3);
+        
+        .hero-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
             padding: 8px 16px;
+            background: rgba(99, 102, 241, 0.1);
+            border: 1px solid rgba(99, 102, 241, 0.3);
             border-radius: 50px;
-            font-size: 0.9rem;
-            color: #5865F2;
-            margin-bottom: 20px;
+            font-size: 0.875rem;
+            color: var(--accent);
+            margin-bottom: 1.5rem;
         }
-        .hero h1 { font-size: 3.5rem; line-height: 1.1; margin-bottom: 20px; }
-        .gradient-text {
-            background: linear-gradient(135deg, #5865F2, #00D4AA);
+        
+        .hero-badge i { animation: pulse 2s infinite; }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .hero h1 {
+            font-size: 4rem;
+            font-weight: 800;
+            line-height: 1.1;
+            margin-bottom: 1.5rem;
+        }
+        
+        .hero h1 span {
+            background: linear-gradient(135deg, var(--accent), #a855f7, #22c55e);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
         }
-        .hero p { color: #888; font-size: 1.2rem; margin-bottom: 30px; line-height: 1.6; }
-        .hero-buttons { display: flex; gap: 15px; margin-bottom: 50px; }
-        .stats { display: flex; gap: 40px; }
-        .stat-item h3 { font-size: 2rem; color: #5865F2; }
-        .stat-item p { color: #666; }
-        .hero-visual {
-            background: #12121a;
-            border: 1px solid #333;
-            border-radius: 15px;
-            padding: 20px;
-            width: 450px;
+        
+        .hero-description {
+            font-size: 1.25rem;
+            color: var(--text-secondary);
+            line-height: 1.7;
+            margin-bottom: 2rem;
         }
+        
+        .hero-buttons {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 3rem;
+        }
+        
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            padding: 14px 28px;
+            border-radius: 10px;
+            font-weight: 600;
+            font-size: 1rem;
+            text-decoration: none;
+            transition: all 0.3s;
+            border: none;
+            cursor: pointer;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, var(--accent), #8b5cf6);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 20px 40px var(--glow);
+        }
+        
+        .btn-secondary {
+            background: var(--bg-card);
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+        }
+        
+        .btn-secondary:hover {
+            background: var(--bg-hover);
+            border-color: var(--accent);
+        }
+        
+        .hero-stats {
+            display: flex;
+            gap: 3rem;
+        }
+        
+        .stat {
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-size: 2.5rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--accent), #22c55e);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        .stat-label {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+            margin-top: 4px;
+        }
+        
+        /* Code Preview */
+        .code-preview {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.4);
+        }
+        
         .code-header {
             display: flex;
+            align-items: center;
             gap: 8px;
-            margin-bottom: 15px;
-            padding-bottom: 15px;
-            border-bottom: 1px solid #333;
+            padding: 16px 20px;
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
         }
-        .dot { width: 12px; height: 12px; border-radius: 50%; }
-        .dot.red { background: #ff5f57; }
-        .dot.yellow { background: #febc2e; }
-        .dot.green { background: #28c840; }
-        .code-content { font-family: monospace; font-size: 0.9rem; line-height: 1.8; }
-        .code-comment { color: #6a9955; }
-        .code-keyword { color: #569cd6; }
-        .code-function { color: #dcdcaa; }
-        .code-string { color: #ce9178; }
+        
+        .code-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+        
+        .code-dot.red { background: #ef4444; }
+        .code-dot.yellow { background: #f59e0b; }
+        .code-dot.green { background: #22c55e; }
+        
+        .code-title {
+            margin-left: 12px;
+            color: var(--text-muted);
+            font-size: 0.875rem;
+        }
+        
+        .code-body {
+            padding: 24px;
+            font-family: 'Fira Code', monospace;
+            font-size: 0.9rem;
+            line-height: 1.8;
+            overflow-x: auto;
+        }
+        
+        .code-comment { color: #6b7280; }
+        .code-keyword { color: #c084fc; }
+        .code-function { color: #fbbf24; }
+        .code-string { color: #4ade80; }
+        .code-variable { color: #60a5fa; }
+        
+        /* Features */
         .features {
-            padding: 100px 50px;
-            background: rgba(0,0,0,0.2);
+            padding: 100px 2rem;
+            background: var(--bg-secondary);
         }
-        .section-title { text-align: center; margin-bottom: 60px; }
-        .section-title h2 { font-size: 2.5rem; margin-bottom: 15px; }
-        .section-title p { color: #888; }
-        .features-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 25px;
-            max-width: 1200px;
+        
+        .section-container {
+            max-width: 1400px;
             margin: 0 auto;
         }
+        
+        .section-header {
+            text-align: center;
+            margin-bottom: 60px;
+        }
+        
+        .section-badge {
+            display: inline-block;
+            padding: 6px 14px;
+            background: rgba(99, 102, 241, 0.1);
+            border: 1px solid rgba(99, 102, 241, 0.3);
+            border-radius: 50px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--accent);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 1rem;
+        }
+        
+        .section-title {
+            font-size: 2.5rem;
+            font-weight: 800;
+            margin-bottom: 1rem;
+        }
+        
+        .section-description {
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 24px;
+        }
+        
         .feature-card {
-            background: rgba(255,255,255,0.03);
-            border: 1px solid rgba(255,255,255,0.1);
-            border-radius: 15px;
-            padding: 30px;
-            transition: 0.3s;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 32px;
+            transition: all 0.3s;
         }
-        .feature-card:hover { transform: translateY(-5px); border-color: #5865F2; }
-        .feature-icon { font-size: 2.5rem; margin-bottom: 20px; }
-        .feature-card h3 { margin-bottom: 10px; }
-        .feature-card p { color: #888; }
+        
+        .feature-card:hover {
+            transform: translateY(-5px);
+            border-color: var(--accent);
+            box-shadow: 0 20px 40px rgba(99, 102, 241, 0.1);
+        }
+        
+        .feature-icon {
+            width: 56px;
+            height: 56px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(139, 92, 246, 0.2));
+            border-radius: 12px;
+            font-size: 1.5rem;
+            margin-bottom: 20px;
+        }
+        
+        .feature-card h3 {
+            font-size: 1.25rem;
+            font-weight: 700;
+            margin-bottom: 12px;
+        }
+        
+        .feature-card p {
+            color: var(--text-secondary);
+            line-height: 1.6;
+        }
+        
+        /* CTA */
         .cta {
+            padding: 100px 2rem;
             text-align: center;
-            padding: 100px 50px;
         }
-        .cta h2 { font-size: 2.5rem; margin-bottom: 15px; }
-        .cta p { color: #888; margin-bottom: 30px; }
+        
+        .cta-box {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 60px;
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.1), rgba(139, 92, 246, 0.05));
+            border: 1px solid rgba(99, 102, 241, 0.2);
+            border-radius: 24px;
+        }
+        
+        .cta h2 {
+            font-size: 2.5rem;
+            font-weight: 800;
+            margin-bottom: 1rem;
+        }
+        
+        .cta p {
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+            margin-bottom: 2rem;
+        }
+        
+        /* Footer */
         .footer {
+            padding: 40px 2rem;
+            border-top: 1px solid var(--border);
             text-align: center;
-            padding: 30px;
-            border-top: 1px solid rgba(255,255,255,0.1);
-            color: #666;
+            color: var(--text-muted);
         }
-        .api-status {
+        
+        /* Status Indicator */
+        .status-bar {
             position: fixed;
             bottom: 20px;
             right: 20px;
-            background: #12121a;
-            border: 1px solid #333;
-            padding: 10px 20px;
-            border-radius: 8px;
-            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 20px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 50px;
+            font-size: 0.875rem;
+            z-index: 100;
         }
-        @media (max-width: 900px) {
-            .hero { flex-direction: column; text-align: center; }
-            .hero h1 { font-size: 2.5rem; }
+        
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--success);
+            animation: blink 2s infinite;
+        }
+        
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+        
+        /* Responsive */
+        @media (max-width: 1024px) {
+            .hero-container { grid-template-columns: 1fr; text-align: center; }
+            .hero h1 { font-size: 3rem; }
             .hero-buttons { justify-content: center; }
-            .stats { justify-content: center; }
-            .hero-visual { width: 100%; max-width: 450px; }
-            .navbar { padding: 15px 20px; }
+            .hero-stats { justify-content: center; }
+            .code-preview { display: none; }
+            .features-grid { grid-template-columns: 1fr; }
+        }
+        
+        @media (max-width: 640px) {
+            .navbar { padding: 1rem; }
+            .nav-links { display: none; }
+            .hero h1 { font-size: 2.25rem; }
+            .hero-buttons { flex-direction: column; }
+            .hero-stats { flex-wrap: wrap; gap: 1.5rem; }
         }
     </style>
 </head>
 <body>
+    <div class="bg-effects">
+        <div class="bg-gradient"></div>
+        <div class="grid-overlay"></div>
+    </div>
+
     <nav class="navbar">
-        <div class="logo">🛡️ <span>Lua</span> Guard</div>
-        <div class="nav-links">
-            <a href="#features">Features</a>
-            <a href="#how-it-works">How It Works</a>
-            <a href="/api" target="_blank">API</a>
-        </div>
-        <div>
-            <a href="/api?route=auth/discord" class="btn btn-primary">🔗 Login with Discord</a>
+        <div class="nav-container">
+            <a href="/" class="logo">
+                <i class="fas fa-shield-halved"></i>
+                <span>Lua Guard</span>
+            </a>
+            <div class="nav-links">
+                <a href="#features">Features</a>
+                <a href="/get-key">Get Key</a>
+                <a href="/dashboard">Dashboard</a>
+                <a href="/admin" class="nav-btn">
+                    <i class="fas fa-lock"></i>
+                    Admin
+                </a>
+            </div>
         </div>
     </nav>
 
     <section class="hero">
-        <div class="hero-content">
-            <div class="badge">⚡ Trusted by thousands</div>
-            <h1>Secure Your <span class="gradient-text">Roblox Scripts</span> With Lua Guard</h1>
-            <p>The most advanced key system for Roblox script protection. Easy integration, automatic key generation, and powerful security.</p>
-            <div class="hero-buttons">
-                <a href="/api?route=auth/discord" class="btn btn-primary">🚀 Get Started Free</a>
-                <a href="/dashboard.html" class="btn btn-secondary">📊 Dashboard</a>
-            </div>
-            <div class="stats">
-                <div class="stat-item">
-                    <h3 id="stat-users">0</h3>
-                    <p>Users</p>
+        <div class="hero-container">
+            <div class="hero-content">
+                <div class="hero-badge">
+                    <i class="fas fa-bolt"></i>
+                    <span>Trusted by 10,000+ developers</span>
                 </div>
-                <div class="stat-item">
-                    <h3 id="stat-keys">0</h3>
-                    <p>Keys Generated</p>
+                <h1>
+                    The Ultimate<br>
+                    <span>Key System</span><br>
+                    for Roblox
+                </h1>
+                <p class="hero-description">
+                    Protect your scripts with advanced HWID locking, automatic key generation via Linkvertise, and a powerful admin dashboard. Built for serious developers.
+                </p>
+                <div class="hero-buttons">
+                    <a href="/get-key" class="btn btn-primary">
+                        <i class="fas fa-key"></i>
+                        Get Your Key
+                    </a>
+                    <a href="/dashboard" class="btn btn-secondary">
+                        <i class="fas fa-chart-line"></i>
+                        Dashboard
+                    </a>
                 </div>
-                <div class="stat-item">
-                    <h3>99.9%</h3>
-                    <p>Uptime</p>
+                <div class="hero-stats">
+                    <div class="stat">
+                        <div class="stat-value" id="stat-keys">0</div>
+                        <div class="stat-label">Keys Generated</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-value" id="stat-users">0</div>
+                        <div class="stat-label">Active Users</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-value">99.9%</div>
+                        <div class="stat-label">Uptime</div>
+                    </div>
                 </div>
             </div>
-        </div>
-        <div class="hero-visual">
-            <div class="code-header">
-                <div class="dot red"></div>
-                <div class="dot yellow"></div>
-                <div class="dot green"></div>
-            </div>
-            <div class="code-content">
-                <span class="code-comment">-- Lua Guard Loader</span><br>
-                <span class="code-keyword">local</span> LuaGuard = <span class="code-function">loadstring</span>(<br>
-                &nbsp;&nbsp;<span class="code-function">game:HttpGet</span>(<span class="code-string" id="loader-url">"https://lua-guard-test.vercel.app/lua/loader.lua"</span>)<br>
-                )()<br><br>
-                <span class="code-comment">-- Show key UI</span><br>
-                LuaGuard:<span class="code-function">Init</span>(<span class="code-keyword">function</span>()<br>
-                &nbsp;&nbsp;<span class="code-function">print</span>(<span class="code-string">"Script loaded!"</span>)<br>
-                <span class="code-keyword">end</span>)<br><br>
-                <span class="code-comment">-- Test Key: TEST-KEY-12345</span>
+            <div class="code-preview">
+                <div class="code-header">
+                    <div class="code-dot red"></div>
+                    <div class="code-dot yellow"></div>
+                    <div class="code-dot green"></div>
+                    <span class="code-title">loader.lua</span>
+                </div>
+                <div class="code-body">
+                    <span class="code-comment">-- Lua Guard Loader</span><br>
+                    <span class="code-keyword">local</span> <span class="code-variable">LuaGuard</span> = <span class="code-function">loadstring</span>(<span class="code-function">game:HttpGet</span>(<br>
+                    &nbsp;&nbsp;<span class="code-string">"<span id="loader-url"></span>/lua/loader.lua"</span><br>
+                    ))()<br><br>
+                    <span class="code-comment">-- Show key UI and validate</span><br>
+                    <span class="code-variable">LuaGuard</span>:<span class="code-function">Init</span>(<span class="code-keyword">function</span>()<br>
+                    &nbsp;&nbsp;<span class="code-function">print</span>(<span class="code-string">"✅ Script unlocked!"</span>)<br>
+                    &nbsp;&nbsp;<span class="code-comment">-- Your code here</span><br>
+                    <span class="code-keyword">end</span>)
+                </div>
             </div>
         </div>
     </section>
 
     <section class="features" id="features">
-        <div class="section-title">
-            <h2>Powerful Features</h2>
-            <p>Everything you need to protect your scripts</p>
-        </div>
-        <div class="features-grid">
-            <div class="feature-card">
-                <div class="feature-icon">🔑</div>
-                <h3>Auto Key Generation</h3>
-                <p>Keys are generated automatically through Linkvertise. No manual work needed.</p>
+        <div class="section-container">
+            <div class="section-header">
+                <div class="section-badge">Features</div>
+                <h2 class="section-title">Everything You Need</h2>
+                <p class="section-description">Powerful features to protect and monetize your Roblox scripts</p>
             </div>
-            <div class="feature-card">
-                <div class="feature-icon">🔒</div>
-                <h3>HWID Binding</h3>
-                <p>Each key is bound to a hardware ID, preventing unauthorized sharing.</p>
-            </div>
-            <div class="feature-card">
-                <div class="feature-icon">⏰</div>
-                <h3>24-Hour Keys</h3>
-                <p>Keys expire after 24 hours for maximum security and recurring revenue.</p>
-            </div>
-            <div class="feature-card">
-                <div class="feature-icon">💬</div>
-                <h3>Discord Integration</h3>
-                <p>Users must join your Discord to register. Build your community.</p>
-            </div>
-            <div class="feature-card">
-                <div class="feature-icon">🛡️</div>
-                <h3>Anti-Bypass</h3>
-                <p>Advanced protection against key leaks and Linkvertise bypasses.</p>
-            </div>
-            <div class="feature-card">
-                <div class="feature-icon">📊</div>
-                <h3>Admin Dashboard</h3>
-                <p>Track users, keys, and revenue with a powerful dashboard.</p>
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">🔑</div>
+                    <h3>Auto Key Generation</h3>
+                    <p>Keys are automatically generated after users complete Linkvertise checkpoints. Zero manual work.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🔒</div>
+                    <h3>HWID Locking</h3>
+                    <p>Each key is bound to a unique hardware ID, preventing unauthorized sharing and leaks.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">⏰</div>
+                    <h3>24-Hour Expiration</h3>
+                    <p>Keys automatically expire after 24 hours, ensuring recurring engagement and revenue.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">📊</div>
+                    <h3>Admin Dashboard</h3>
+                    <p>Powerful dashboard to manage keys, view analytics, and configure your key system.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🔗</div>
+                    <h3>Linkvertise Integration</h3>
+                    <p>Seamless integration with Linkvertise for monetization. Just add your publisher ID.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">💬</div>
+                    <h3>Discord Webhooks</h3>
+                    <p>Get instant notifications when keys are generated or validated via Discord webhooks.</p>
+                </div>
             </div>
         </div>
     </section>
 
     <section class="cta">
-        <h2>Ready to Get Started?</h2>
-        <p>Join thousands of developers who trust Lua Guard</p>
-        <a href="/api?route=auth/discord" class="btn btn-primary">🔗 Login with Discord</a>
+        <div class="cta-box">
+            <h2>Ready to Protect Your Scripts?</h2>
+            <p>Get started in seconds. No complicated setup required.</p>
+            <a href="/get-key" class="btn btn-primary">
+                <i class="fas fa-rocket"></i>
+                Get Started Now
+            </a>
+        </div>
     </section>
 
     <footer class="footer">
         <p>© 2024 Lua Guard. All rights reserved.</p>
     </footer>
 
-    <div class="api-status">
-        API: <span id="api-status">Checking...</span>
+    <div class="status-bar">
+        <div class="status-dot"></div>
+        <span>API <span id="api-status">Online</span></span>
     </div>
 
     <script>
-        // Update loader URL
-        document.getElementById('loader-url').textContent = `"${window.location.origin}/lua/loader.lua"`;
+        document.getElementById('loader-url').textContent = window.location.origin;
         
-        // Check API
-        fetch('/api')
-            .then(r => r.json())
-            .then(d => {
-                document.getElementById('api-status').textContent = d.success ? '✅ Online' : '❌ Offline';
-                document.getElementById('api-status').style.color = d.success ? '#57F287' : '#ED4245';
-            })
-            .catch(() => {
-                document.getElementById('api-status').textContent = '❌ Offline';
-                document.getElementById('api-status').style.color = '#ED4245';
-            });
-        
-        // Load stats
         fetch('/api?route=admin/stats')
             .then(r => r.json())
             .then(d => {
                 if (d.success) {
-                    document.getElementById('stat-users').textContent = d.stats.totalUsers;
-                    document.getElementById('stat-keys').textContent = d.stats.totalKeys;
+                    document.getElementById('stat-keys').textContent = d.stats.total_keys;
+                    document.getElementById('stat-users').textContent = d.stats.active_hwids;
                 }
+            })
+            .catch(() => {
+                document.getElementById('api-status').textContent = 'Checking...';
             });
     </script>
 </body>
