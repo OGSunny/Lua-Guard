@@ -3,328 +3,287 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Lua Guard - Premium Key System</title>
-    <link rel="stylesheet" href="/css/style.css">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <title>Lua Guard - Key System</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #0a0a0f 0%, #1a1a2e 100%);
+            min-height: 100vh;
+            color: #fff;
+        }
+        .navbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 50px;
+            background: rgba(0,0,0,0.3);
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        .logo { font-size: 1.5rem; font-weight: bold; display: flex; align-items: center; gap: 10px; }
+        .logo span { color: #5865F2; }
+        .nav-links { display: flex; gap: 20px; }
+        .nav-links a { color: #888; text-decoration: none; transition: 0.3s; }
+        .nav-links a:hover { color: #fff; }
+        .btn {
+            padding: 12px 25px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 600;
+            transition: all 0.3s;
+            border: none;
+            cursor: pointer;
+            font-size: 1rem;
+        }
+        .btn-primary { background: #5865F2; color: #fff; }
+        .btn-primary:hover { background: #4752C4; transform: translateY(-2px); }
+        .btn-secondary { background: transparent; border: 1px solid #5865F2; color: #fff; }
+        .btn-secondary:hover { background: rgba(88,101,242,0.1); }
+        .hero {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: calc(100vh - 80px);
+            padding: 50px;
+            gap: 80px;
+        }
+        .hero-content { max-width: 550px; }
+        .badge {
+            display: inline-block;
+            background: rgba(88,101,242,0.1);
+            border: 1px solid rgba(88,101,242,0.3);
+            padding: 8px 16px;
+            border-radius: 50px;
+            font-size: 0.9rem;
+            color: #5865F2;
+            margin-bottom: 20px;
+        }
+        .hero h1 { font-size: 3.5rem; line-height: 1.1; margin-bottom: 20px; }
+        .gradient-text {
+            background: linear-gradient(135deg, #5865F2, #00D4AA);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .hero p { color: #888; font-size: 1.2rem; margin-bottom: 30px; line-height: 1.6; }
+        .hero-buttons { display: flex; gap: 15px; margin-bottom: 50px; }
+        .stats { display: flex; gap: 40px; }
+        .stat-item h3 { font-size: 2rem; color: #5865F2; }
+        .stat-item p { color: #666; }
+        .hero-visual {
+            background: #12121a;
+            border: 1px solid #333;
+            border-radius: 15px;
+            padding: 20px;
+            width: 450px;
+        }
+        .code-header {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 15px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #333;
+        }
+        .dot { width: 12px; height: 12px; border-radius: 50%; }
+        .dot.red { background: #ff5f57; }
+        .dot.yellow { background: #febc2e; }
+        .dot.green { background: #28c840; }
+        .code-content { font-family: monospace; font-size: 0.9rem; line-height: 1.8; }
+        .code-comment { color: #6a9955; }
+        .code-keyword { color: #569cd6; }
+        .code-function { color: #dcdcaa; }
+        .code-string { color: #ce9178; }
+        .features {
+            padding: 100px 50px;
+            background: rgba(0,0,0,0.2);
+        }
+        .section-title { text-align: center; margin-bottom: 60px; }
+        .section-title h2 { font-size: 2.5rem; margin-bottom: 15px; }
+        .section-title p { color: #888; }
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 25px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .feature-card {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 15px;
+            padding: 30px;
+            transition: 0.3s;
+        }
+        .feature-card:hover { transform: translateY(-5px); border-color: #5865F2; }
+        .feature-icon { font-size: 2.5rem; margin-bottom: 20px; }
+        .feature-card h3 { margin-bottom: 10px; }
+        .feature-card p { color: #888; }
+        .cta {
+            text-align: center;
+            padding: 100px 50px;
+        }
+        .cta h2 { font-size: 2.5rem; margin-bottom: 15px; }
+        .cta p { color: #888; margin-bottom: 30px; }
+        .footer {
+            text-align: center;
+            padding: 30px;
+            border-top: 1px solid rgba(255,255,255,0.1);
+            color: #666;
+        }
+        .api-status {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: #12121a;
+            border: 1px solid #333;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+        }
+        @media (max-width: 900px) {
+            .hero { flex-direction: column; text-align: center; }
+            .hero h1 { font-size: 2.5rem; }
+            .hero-buttons { justify-content: center; }
+            .stats { justify-content: center; }
+            .hero-visual { width: 100%; max-width: 450px; }
+            .navbar { padding: 15px 20px; }
+        }
+    </style>
 </head>
 <body>
-    <!-- Animated Background -->
-    <div class="bg-animation">
-        <div class="bg-gradient"></div>
-        <div class="bg-particles" id="particles"></div>
-    </div>
-
-    <!-- Navigation -->
     <nav class="navbar">
-        <div class="nav-container">
-            <a href="/" class="nav-logo">
-                <i class="fas fa-shield-alt"></i>
-                <span>Lua Guard</span>
-            </a>
-            <div class="nav-links">
-                <a href="#features">Features</a>
-                <a href="#how-it-works">How It Works</a>
-                <a href="#stats">Stats</a>
-            </div>
-            <div class="nav-auth" id="nav-auth">
-                <a href="/api/auth/discord" class="btn btn-primary">
-                    <i class="fab fa-discord"></i>
-                    Login with Discord
-                </a>
-            </div>
+        <div class="logo">🛡️ <span>Lua</span> Guard</div>
+        <div class="nav-links">
+            <a href="#features">Features</a>
+            <a href="#how-it-works">How It Works</a>
+            <a href="/api" target="_blank">API</a>
+        </div>
+        <div>
+            <a href="/api?route=auth/discord" class="btn btn-primary">🔗 Login with Discord</a>
         </div>
     </nav>
 
-    <!-- Hero Section -->
     <section class="hero">
         <div class="hero-content">
-            <div class="hero-badge">
-                <i class="fas fa-bolt"></i>
-                <span>Trusted by thousands of users</span>
-            </div>
-            <h1 class="hero-title">
-                Secure Your <span class="gradient-text">Roblox Scripts</span>
-                <br>With Lua Guard
-            </h1>
-            <p class="hero-description">
-                The most advanced key system for Roblox script protection. 
-                Easy integration, automatic key generation, and powerful security features.
-            </p>
+            <div class="badge">⚡ Trusted by thousands</div>
+            <h1>Secure Your <span class="gradient-text">Roblox Scripts</span> With Lua Guard</h1>
+            <p>The most advanced key system for Roblox script protection. Easy integration, automatic key generation, and powerful security.</p>
             <div class="hero-buttons">
-                <a href="/api/auth/discord" class="btn btn-primary btn-lg">
-                    <i class="fab fa-discord"></i>
-                    Get Started Free
-                </a>
-                <a href="#how-it-works" class="btn btn-secondary btn-lg">
-                    <i class="fas fa-play"></i>
-                    How It Works
-                </a>
+                <a href="/api?route=auth/discord" class="btn btn-primary">🚀 Get Started Free</a>
+                <a href="/dashboard.html" class="btn btn-secondary">📊 Dashboard</a>
             </div>
-            <div class="hero-stats">
-                <div class="hero-stat">
-                    <span class="stat-number" id="stat-users">10,000+</span>
-                    <span class="stat-label">Active Users</span>
+            <div class="stats">
+                <div class="stat-item">
+                    <h3 id="stat-users">0</h3>
+                    <p>Users</p>
                 </div>
-                <div class="hero-stat">
-                    <span class="stat-number" id="stat-keys">50,000+</span>
-                    <span class="stat-label">Keys Generated</span>
+                <div class="stat-item">
+                    <h3 id="stat-keys">0</h3>
+                    <p>Keys Generated</p>
                 </div>
-                <div class="hero-stat">
-                    <span class="stat-number">99.9%</span>
-                    <span class="stat-label">Uptime</span>
+                <div class="stat-item">
+                    <h3>99.9%</h3>
+                    <p>Uptime</p>
                 </div>
             </div>
         </div>
         <div class="hero-visual">
-            <div class="code-window">
-                <div class="code-header">
-                    <div class="code-dots">
-                        <span class="dot red"></span>
-                        <span class="dot yellow"></span>
-                        <span class="dot green"></span>
-                    </div>
-                    <span class="code-title">LuaGuard.lua</span>
-                </div>
-                <pre class="code-content"><code><span class="code-comment">-- Lua Guard Key System</span>
-<span class="code-keyword">local</span> LuaGuard = <span class="code-function">loadstring</span>(<span class="code-function">game:HttpGet</span>(
-    <span class="code-string">"https://lua-guard-test.vercel.app/lua/loader.lua"</span>
-))()
-
-<span class="code-comment">-- Initialize with your script</span>
-LuaGuard:<span class="code-function">Init</span>({
-    <span class="code-property">Name</span> = <span class="code-string">"My Script"</span>,
-    <span class="code-property">Key</span> = <span class="code-string">"LUAGUARD-XXXX-XXXX"</span>
-})
-
-<span class="code-comment">-- Your script runs after validation</span>
-<span class="code-function">print</span>(<span class="code-string">"Script loaded successfully!"</span>)</code></pre>
+            <div class="code-header">
+                <div class="dot red"></div>
+                <div class="dot yellow"></div>
+                <div class="dot green"></div>
+            </div>
+            <div class="code-content">
+                <span class="code-comment">-- Lua Guard Loader</span><br>
+                <span class="code-keyword">local</span> LuaGuard = <span class="code-function">loadstring</span>(<br>
+                &nbsp;&nbsp;<span class="code-function">game:HttpGet</span>(<span class="code-string" id="loader-url">"https://lua-guard-test.vercel.app/lua/loader.lua"</span>)<br>
+                )()<br><br>
+                <span class="code-comment">-- Show key UI</span><br>
+                LuaGuard:<span class="code-function">Init</span>(<span class="code-keyword">function</span>()<br>
+                &nbsp;&nbsp;<span class="code-function">print</span>(<span class="code-string">"Script loaded!"</span>)<br>
+                <span class="code-keyword">end</span>)<br><br>
+                <span class="code-comment">-- Test Key: TEST-KEY-12345</span>
             </div>
         </div>
     </section>
 
-    <!-- Features Section -->
     <section class="features" id="features">
-        <div class="container">
-            <div class="section-header">
-                <span class="section-badge">Features</span>
-                <h2 class="section-title">Everything You Need</h2>
-                <p class="section-description">Powerful features to protect and monetize your scripts</p>
+        <div class="section-title">
+            <h2>Powerful Features</h2>
+            <p>Everything you need to protect your scripts</p>
+        </div>
+        <div class="features-grid">
+            <div class="feature-card">
+                <div class="feature-icon">🔑</div>
+                <h3>Auto Key Generation</h3>
+                <p>Keys are generated automatically through Linkvertise. No manual work needed.</p>
             </div>
-            <div class="features-grid">
-                <div class="feature-card">
-                    <div class="feature-icon">
-                        <i class="fas fa-key"></i>
-                    </div>
-                    <h3>Automatic Key Generation</h3>
-                    <p>Keys are generated automatically through Linkvertise integration. No manual work required.</p>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon">
-                        <i class="fas fa-fingerprint"></i>
-                    </div>
-                    <h3>HWID Binding</h3>
-                    <p>Each key is bound to a specific hardware ID, preventing unauthorized sharing.</p>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon">
-                        <i class="fas fa-clock"></i>
-                    </div>
-                    <h3>24-Hour Keys</h3>
-                    <p>Keys automatically expire after 24 hours for maximum security and recurring revenue.</p>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon">
-                        <i class="fab fa-discord"></i>
-                    </div>
-                    <h3>Discord Integration</h3>
-                    <p>Users must join your Discord server to register. Build your community automatically.</p>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon">
-                        <i class="fas fa-shield-alt"></i>
-                    </div>
-                    <h3>Anti-Bypass Protection</h3>
-                    <p>Advanced security to prevent key leaks and Linkvertise bypasses.</p>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon">
-                        <i class="fas fa-chart-line"></i>
-                    </div>
-                    <h3>Analytics Dashboard</h3>
-                    <p>Track users, keys, and revenue with a powerful admin dashboard.</p>
-                </div>
+            <div class="feature-card">
+                <div class="feature-icon">🔒</div>
+                <h3>HWID Binding</h3>
+                <p>Each key is bound to a hardware ID, preventing unauthorized sharing.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">⏰</div>
+                <h3>24-Hour Keys</h3>
+                <p>Keys expire after 24 hours for maximum security and recurring revenue.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">💬</div>
+                <h3>Discord Integration</h3>
+                <p>Users must join your Discord to register. Build your community.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">🛡️</div>
+                <h3>Anti-Bypass</h3>
+                <p>Advanced protection against key leaks and Linkvertise bypasses.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">📊</div>
+                <h3>Admin Dashboard</h3>
+                <p>Track users, keys, and revenue with a powerful dashboard.</p>
             </div>
         </div>
     </section>
 
-    <!-- How It Works Section -->
-    <section class="how-it-works" id="how-it-works">
-        <div class="container">
-            <div class="section-header">
-                <span class="section-badge">Process</span>
-                <h2 class="section-title">How It Works</h2>
-                <p class="section-description">Get your key in just a few simple steps</p>
-            </div>
-            <div class="steps">
-                <div class="step">
-                    <div class="step-number">1</div>
-                    <div class="step-content">
-                        <h3>Login with Discord</h3>
-                        <p>Connect your Discord account and join our server to get started.</p>
-                    </div>
-                </div>
-                <div class="step-arrow">
-                    <i class="fas fa-arrow-right"></i>
-                </div>
-                <div class="step">
-                    <div class="step-number">2</div>
-                    <div class="step-content">
-                        <h3>Complete Verification</h3>
-                        <p>Complete a quick Linkvertise task to generate your unique key.</p>
-                    </div>
-                </div>
-                <div class="step-arrow">
-                    <i class="fas fa-arrow-right"></i>
-                </div>
-                <div class="step">
-                    <div class="step-number">3</div>
-                    <div class="step-content">
-                        <h3>Get Your Key</h3>
-                        <p>Your key is automatically generated and ready to use immediately.</p>
-                    </div>
-                </div>
-                <div class="step-arrow">
-                    <i class="fas fa-arrow-right"></i>
-                </div>
-                <div class="step">
-                    <div class="step-number">4</div>
-                    <div class="step-content">
-                        <h3>Use in Script</h3>
-                        <p>Enter your key in the script UI and enjoy full access for 24 hours.</p>
-                    </div>
-                </div>
-            </div>
-        </div>
+    <section class="cta">
+        <h2>Ready to Get Started?</h2>
+        <p>Join thousands of developers who trust Lua Guard</p>
+        <a href="/api?route=auth/discord" class="btn btn-primary">🔗 Login with Discord</a>
     </section>
 
-    <!-- Stats Section -->
-    <section class="stats-section" id="stats">
-        <div class="container">
-            <div class="stats-grid">
-                <div class="stat-card">
-                    <i class="fas fa-users"></i>
-                    <div class="stat-info">
-                        <span class="stat-value" id="total-users">0</span>
-                        <span class="stat-name">Registered Users</span>
-                    </div>
-                </div>
-                <div class="stat-card">
-                    <i class="fas fa-key"></i>
-                    <div class="stat-info">
-                        <span class="stat-value" id="total-keys">0</span>
-                        <span class="stat-name">Total Keys Generated</span>
-                    </div>
-                </div>
-                <div class="stat-card">
-                    <i class="fas fa-check-circle"></i>
-                    <div class="stat-info">
-                        <span class="stat-value" id="active-keys">0</span>
-                        <span class="stat-name">Active Keys</span>
-                    </div>
-                </div>
-                <div class="stat-card">
-                    <i class="fas fa-calendar-day"></i>
-                    <div class="stat-info">
-                        <span class="stat-value" id="today-keys">0</span>
-                        <span class="stat-name">Keys Today</span>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- CTA Section -->
-    <section class="cta-section">
-        <div class="container">
-            <div class="cta-content">
-                <h2>Ready to Get Started?</h2>
-                <p>Join thousands of users who trust Lua Guard for their script protection.</p>
-                <a href="/api/auth/discord" class="btn btn-primary btn-lg">
-                    <i class="fab fa-discord"></i>
-                    Login with Discord
-                </a>
-            </div>
-        </div>
-    </section>
-
-    <!-- Footer -->
     <footer class="footer">
-        <div class="container">
-            <div class="footer-content">
-                <div class="footer-brand">
-                    <a href="/" class="footer-logo">
-                        <i class="fas fa-shield-alt"></i>
-                        <span>Lua Guard</span>
-                    </a>
-                    <p>The most trusted key system for Roblox scripts.</p>
-                </div>
-                <div class="footer-links">
-                    <div class="footer-column">
-                        <h4>Product</h4>
-                        <a href="#features">Features</a>
-                        <a href="#how-it-works">How It Works</a>
-                        <a href="/dashboard">Dashboard</a>
-                    </div>
-                    <div class="footer-column">
-                        <h4>Support</h4>
-                        <a href="https://discord.gg/your-invite" target="_blank">Discord Server</a>
-                        <a href="#">Documentation</a>
-                        <a href="#">FAQ</a>
-                    </div>
-                    <div class="footer-column">
-                        <h4>Legal</h4>
-                        <a href="#">Terms of Service</a>
-                        <a href="#">Privacy Policy</a>
-                    </div>
-                </div>
-            </div>
-            <div class="footer-bottom">
-                <p>&copy; 2025 Lua Guard. All rights reserved.</p>
-            </div>
-        </div>
+        <p>© 2024 Lua Guard. All rights reserved.</p>
     </footer>
 
-    <!-- Error Modal -->
-    <div class="modal" id="error-modal">
-        <div class="modal-content">
-            <div class="modal-icon error">
-                <i class="fas fa-exclamation-circle"></i>
-            </div>
-            <h3 id="modal-title">Error</h3>
-            <p id="modal-message">An error occurred.</p>
-            <button class="btn btn-primary" onclick="closeModal()">OK</button>
-        </div>
+    <div class="api-status">
+        API: <span id="api-status">Checking...</span>
     </div>
 
-    <!-- Join Discord Modal -->
-    <div class="modal" id="discord-modal">
-        <div class="modal-content">
-            <div class="modal-icon discord">
-                <i class="fab fa-discord"></i>
-            </div>
-            <h3>Join Our Discord</h3>
-            <p>You need to join our Discord server to register and get keys.</p>
-            <a href="" id="discord-invite-link" class="btn btn-primary" target="_blank">
-                <i class="fab fa-discord"></i>
-                Join Discord Server
-            </a>
-            <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
-        </div>
-    </div>
-
-    <script src="/js/main.js"></script>
+    <script>
+        // Update loader URL
+        document.getElementById('loader-url').textContent = `"${window.location.origin}/lua/loader.lua"`;
+        
+        // Check API
+        fetch('/api')
+            .then(r => r.json())
+            .then(d => {
+                document.getElementById('api-status').textContent = d.success ? '✅ Online' : '❌ Offline';
+                document.getElementById('api-status').style.color = d.success ? '#57F287' : '#ED4245';
+            })
+            .catch(() => {
+                document.getElementById('api-status').textContent = '❌ Offline';
+                document.getElementById('api-status').style.color = '#ED4245';
+            });
+        
+        // Load stats
+        fetch('/api?route=admin/stats')
+            .then(r => r.json())
+            .then(d => {
+                if (d.success) {
+                    document.getElementById('stat-users').textContent = d.stats.totalUsers;
+                    document.getElementById('stat-keys').textContent = d.stats.totalKeys;
+                }
+            });
+    </script>
 </body>
 </html>
