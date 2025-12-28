@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Get Key - Lua Guard</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #0f0f1a 0%, #1a1a2e 50%, #16213e 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+        }
+        .container {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 20px;
+            padding: 40px;
+            max-width: 500px;
+            width: 90%;
+            text-align: center;
+            backdrop-filter: blur(10px);
+        }
+        .logo { font-size: 4rem; margin-bottom: 10px; }
+        h1 { font-size: 2rem; margin-bottom: 5px; }
+        .subtitle { color: #888; margin-bottom: 30px; }
+        
+        .progress-container {
+            background: rgba(0,0,0,0.3);
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 25px;
+        }
+        .progress-title { font-size: 0.9rem; color: #888; margin-bottom: 15px; }
+        .progress-bar {
+            background: #1a1a2e;
+            height: 12px;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-bottom: 15px;
+        }
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #5865F2, #00D4AA);
+            border-radius: 10px;
+            transition: width 0.5s ease;
+        }
+        .progress-text { font-size: 0.9rem; color: #00D4AA; }
+        
+        .checkpoints {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+        .checkpoint {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 1.2rem;
+            border: 3px solid #333;
+            background: #1a1a2e;
+            transition: all 0.3s;
+        }
+        .checkpoint.completed {
+            background: linear-gradient(135deg, #57F287, #00D4AA);
+            border-color: #57F287;
+            color: #000;
+        }
+        .checkpoint.current {
+            border-color: #5865F2;
+            animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(88,101,242,0.5); }
+            50% { box-shadow: 0 0 0 10px rgba(88,101,242,0); }
+        }
+        
+        .btn {
+            display: inline-block;
+            padding: 15px 40px;
+            border-radius: 10px;
+            font-weight: 600;
+            font-size: 1.1rem;
+            text-decoration: none;
+            border: none;
+            cursor: pointer;
+            transition: all 0.3s;
+            width: 100%;
+            margin-bottom: 15px;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #5865F2, #4752C4);
+            color: #fff;
+        }
+        .btn-primary:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 30px rgba(88,101,242,0.3);
+        }
+        .btn-success {
+            background: linear-gradient(135deg, #57F287, #00D4AA);
+            color: #000;
+        }
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+        
+        .key-display {
+            background: #0a0a0f;
+            border: 2px solid #57F287;
+            border-radius: 12px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .key-display code {
+            font-size: 1.4rem;
+            color: #00D4AA;
+            letter-spacing: 2px;
+            word-break: break-all;
+        }
+        .key-display .expires {
+            color: #888;
+            font-size: 0.9rem;
+            margin-top: 10px;
+        }
+        
+        .hwid-box {
+            background: rgba(0,0,0,0.3);
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 20px;
+            text-align: left;
+        }
+        .hwid-box label { color: #888; font-size: 0.85rem; display: block; margin-bottom: 8px; }
+        .hwid-box input {
+            width: 100%;
+            padding: 12px;
+            background: #12121a;
+            border: 1px solid #333;
+            border-radius: 8px;
+            color: #00D4AA;
+            font-family: monospace;
+            font-size: 0.9rem;
+        }
+        .hwid-box input:focus { outline: none; border-color: #5865F2; }
+        
+        .error-msg {
+            background: rgba(237,66,69,0.1);
+            border: 1px solid #ED4245;
+            color: #ED4245;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+        .success-msg {
+            background: rgba(87,242,135,0.1);
+            border: 1px solid #57F287;
+            color: #57F287;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .info-text { color: #666; font-size: 0.85rem; margin-top: 20px; line-height: 1.5; }
+        .back-link { color: #5865F2; text-decoration: none; display: inline-block; margin-top: 20px; }
+        .back-link:hover { text-decoration: underline; }
+        
+        .copy-btn {
+            background: #333;
+            border: none;
+            color: #fff;
+            padding: 8px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            margin-top: 10px;
+            font-size: 0.9rem;
+        }
+        .copy-btn:hover { background: #444; }
+        
+        .loading { display: none; }
+        .loading.show { display: block; }
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid #333;
+            border-top-color: #5865F2;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">🛡️</div>
+        <h1>Lua Guard</h1>
+        <p class="subtitle">Key System</p>
+        
+        <!-- Loading -->
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>Loading...</p>
+        </div>
+        
+        <!-- Error Message -->
+        <div class="error-msg" id="error-msg" style="display:none;"></div>
+        
+        <!-- Success Message -->
+        <div class="success-msg" id="success-msg" style="display:none;"></div>
+        
+        <!-- HWID Input (shown initially) -->
+        <div id="hwid-section">
+            <div class="hwid-box">
+                <label>Enter your HWID</label>
+                <input type="text" id="hwid-input" placeholder="Paste your HWID here...">
+            </div>
+            <button class="btn btn-primary" onclick="startGetKey()">🔑 Get Key</button>
+            <p class="info-text">Run the script in Roblox to get your HWID, or use <strong>TEST-HWID</strong> for testing.</p>
+        </div>
+        
+        <!-- Key Generation Progress -->
+        <div id="progress-section" style="display:none;">
+            <div class="progress-container">
+                <div class="progress-title">CHECKPOINT PROGRESS</div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progress-fill" style="width: 0%"></div>
+                </div>
+                <div class="progress-text" id="progress-text">0 / 2 Completed</div>
+            </div>
+            
+            <div class="checkpoints" id="checkpoints">
+                <div class="checkpoint" id="cp-1">1</div>
+                <div class="checkpoint" id="cp-2">2</div>
+            </div>
+            
+            <button class="btn btn-primary" id="checkpoint-btn" onclick="openCheckpoint()">
+                ⚡ Complete Checkpoint 1
+            </button>
+            
+            <p class="info-text">Complete all checkpoints to generate your key. Each checkpoint takes about 15 seconds.</p>
+        </div>
+        
+        <!-- Key Display (shown when key is generated) -->
+        <div id="key-section" style="display:none;">
+            <div class="success-msg">✅ Key Generated Successfully!</div>
+            
+            <div class="key-display">
+                <code id="key-display">LUAGUARD-XXXX-XXXX-XXXX-XXXX</code>
+                <div class="expires" id="key-expires">Expires in 24 hours</div>
+                <button class="copy-btn" onclick="copyKey()">📋 Copy Key</button>
+            </div>
+            
+            <button class="btn btn-success" onclick="copyKey()">📋 Copy Key to Clipboard</button>
+            
+            <p class="info-text">Paste this key in the script to unlock. Your key is bound to your device.</p>
+        </div>
+        
+        <!-- Already Has Key -->
+        <div id="haskey-section" style="display:none;">
+            <div class="success-msg">✅ You already have an active key!</div>
+            
+            <div class="key-display">
+                <code id="existing-key">LUAGUARD-XXXX-XXXX-XXXX-XXXX</code>
+                <div class="expires" id="existing-expires">Expires in 24 hours</div>
+                <button class="copy-btn" onclick="copyExistingKey()">📋 Copy Key</button>
+            </div>
+        </div>
+        
+        <a href="/" class="back-link">← Back to Home</a>
+    </div>
+
+    <script>
+        const API = '/api';
+        let currentHWID = '';
+        let currentCheckpoint = 0;
+        let totalCheckpoints = 2;
+        let checkpointWindow = null;
+        
+        // Check URL params
+        const params = new URLSearchParams(window.location.search);
+        
+        if (params.get('hwid')) {
+            currentHWID = params.get('hwid');
+            document.getElementById('hwid-input').value = currentHWID;
+        }
+        
+        if (params.get('key') && params.get('success')) {
+            // Key was just generated!
+            showKeySection(params.get('key'));
+        } else if (params.get('cp')) {
+            // Checkpoint completed, continue
+            currentCheckpoint = parseInt(params.get('cp'));
+            if (currentHWID) {
+                showProgressSection();
+                updateProgress();
+            }
+        } else if (params.get('error')) {
+            showError('An error occurred. Please try again.');
+        }
+        
+        // Auto-load if HWID in URL
+        if (currentHWID && !params.get('key') && !params.get('success')) {
+            startGetKey();
+        }
+        
+        async function startGetKey() {
+            const hwid = document.getElementById('hwid-input').value.trim();
+            
+            if (!hwid) {
+                showError('Please enter your HWID');
+                return;
+            }
+            
+            currentHWID = hwid;
+            showLoading(true);
+            
+            try {
+                const res = await fetch(`${API}?route=getkey&hwid=${hwid}`);
+                const data = await res.json();
+                
+                showLoading(false);
+                
+                if (data.has_key) {
+                    // Already has a key
+                    document.getElementById('existing-key').textContent = data.key;
+                    document.getElementById('existing-expires').textContent = 
+                        `Expires in ${Math.floor(data.expires_in / 3600)}h ${Math.floor((data.expires_in % 3600) / 60)}m`;
+                    showSection('haskey-section');
+                } else {
+                    // Need to complete checkpoints
+                    currentCheckpoint = data.checkpoints_completed || 0;
+                    totalCheckpoints = data.checkpoints_required || 2;
+                    showProgressSection();
+                    updateProgress();
+                }
+            } catch (e) {
+                showLoading(false);
+                showError('Failed to connect to server');
+            }
+        }
+        
+        function showProgressSection() {
+            document.getElementById('hwid-section').style.display = 'none';
+            document.getElementById('progress-section').style.display = 'block';
+        }
+        
+        function updateProgress() {
+            const percent = (currentCheckpoint / totalCheckpoints) * 100;
+            document.getElementById('progress-fill').style.width = percent + '%';
+            document.getElementById('progress-text').textContent = `${currentCheckpoint} / ${totalCheckpoints} Completed`;
+            
+            // Update checkpoint dots
+            for (let i = 1; i <= totalCheckpoints; i++) {
+                const cp = document.getElementById('cp-' + i);
+                if (cp) {
+                    cp.classList.remove('completed', 'current');
+                    if (i <= currentCheckpoint) {
+                        cp.classList.add('completed');
+                        cp.innerHTML = '✓';
+                    } else if (i === currentCheckpoint + 1) {
+                        cp.classList.add('current');
+                    }
+                }
+            }
+            
+            // Update button
+            const btn = document.getElementById('checkpoint-btn');
+            if (currentCheckpoint >= totalCheckpoints) {
+                btn.textContent = '⏳ Generating Key...';
+                btn.disabled = true;
+            } else {
+                btn.textContent = `⚡ Complete Checkpoint ${currentCheckpoint + 1}`;
+                btn.disabled = false;
+            }
+        }
+        
+        async function openCheckpoint() {
+            const nextCheckpoint = currentCheckpoint + 1;
+            
+            try {
+                const res = await fetch(`${API}?route=checkpoint&hwid=${currentHWID}&checkpoint=${nextCheckpoint}`);
+                const data = await res.json();
+                
+                if (data.has_key) {
+                    showKeySection(data.key);
+                    return;
+                }
+                
+                if (data.url) {
+                    // Open Linkvertise in new tab
+                    checkpointWindow = window.open(data.url, '_blank');
+                    
+                    // Start checking for completion
+                    document.getElementById('checkpoint-btn').textContent = '⏳ Waiting for completion...';
+                    document.getElementById('checkpoint-btn').disabled = true;
+                    
+                    // Poll for completion
+                    pollForCompletion();
+                }
+            } catch (e) {
+                showError('Failed to get checkpoint link');
+            }
+        }
+        
+        async function pollForCompletion() {
+            const checkInterval = setInterval(async () => {
+                try {
+                    const res = await fetch(`${API}?route=getkey&hwid=${currentHWID}`);
+                    const data = await res.json();
+                    
+                    if (data.has_key) {
+                        clearInterval(checkInterval);
+                        showKeySection(data.key);
+                    } else if (data.checkpoints_completed > currentCheckpoint) {
+                        clearInterval(checkInterval);
+                        currentCheckpoint = data.checkpoints_completed;
+                        updateProgress();
+                        
+                        if (currentCheckpoint >= totalCheckpoints) {
+                            // Should have key now, check again
+                            setTimeout(() => pollForCompletion(), 1000);
+                        }
+                    }
+                } catch (e) {}
+            }, 3000);
+            
+            // Stop after 5 minutes
+            setTimeout(() => clearInterval(checkInterval), 300000);
+        }
+        
+        function showKeySection(key) {
+            document.getElementById('hwid-section').style.display = 'none';
+            document.getElementById('progress-section').style.display = 'none';
+            document.getElementById('haskey-section').style.display = 'none';
+            document.getElementById('key-section').style.display = 'block';
+            document.getElementById('key-display').textContent = key;
+            document.getElementById('error-msg').style.display = 'none';
+        }
+        
+        function showSection(sectionId) {
+            ['hwid-section', 'progress-section', 'key-section', 'haskey-section'].forEach(id => {
+                document.getElementById(id).style.display = id === sectionId ? 'block' : 'none';
+            });
+        }
+        
+        function copyKey() {
+            const key = document.getElementById('key-display').textContent;
+            navigator.clipboard.writeText(key);
+            showSuccess('Key copied to clipboard!');
+        }
+        
+        function copyExistingKey() {
+            const key = document.getElementById('existing-key').textContent;
+            navigator.clipboard.writeText(key);
+            showSuccess('Key copied to clipboard!');
+        }
+        
+        function showLoading(show) {
+            document.getElementById('loading').classList.toggle('show', show);
+        }
+        
+        function showError(msg) {
+            const el = document.getElementById('error-msg');
+            el.textContent = '❌ ' + msg;
+            el.style.display = 'block';
+            setTimeout(() => el.style.display = 'none', 5000);
+        }
+        
+        function showSuccess(msg) {
+            const el = document.getElementById('success-msg');
+            el.textContent = '✅ ' + msg;
+            el.style.display = 'block';
+            setTimeout(() => el.style.display = 'none', 3000);
+        }
+    </script>
+</body>
+</html>
